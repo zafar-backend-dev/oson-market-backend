@@ -1,0 +1,75 @@
+OSON MARKET — ADMIN MAHSULOT CRUD
+
+Admin katalogida kategoriya bo‘yicha mahsulotlarni boshqarish formasini ulang. Mahsulot, variantlar va rasmlar bitta Saqlash tugmasi bilan yuborilsin. Barcha so‘rovlarga Authorization: Bearer <admin JWT> va Accept-Language: uz yoki ru qo‘sh. Mahalliy backend http://localhost:8080.
+
+1. Tanlovlar
+   GET /api/admin/categories?page=0&size=20 va GET /api/admin/brands?page=0&size=20 orqali kategoriya va brend variantlarini yukla. Javob {content,page}; element {id,data}. Kerak bo‘lsa keyingi sahifalarni yukla. Kategoriya va brendni nomi bilan ko‘rsat. Tanlangan qiymatlarning UUID sini forma state ichida saqla. Kategoriya ichidan mahsulot qo‘shilsa o‘sha kategoriyani oldindan tanla.
+
+2. Ro‘yxat
+   GET /api/admin/products?page=0&size=20 → 200, {content:[{id,data}],page}. data.categoryIds orqali joriy kategoriya belgilarini ko‘rsat. Joriy kategoriya bo‘yicha filtrlash uchun &categoryId=<kategoriya UUID> qo‘sh.
+
+3. Tafsilot va tahrir
+   GET /api/admin/products/{id} → 200, {id,data,variants}. data obyektida mahsulot maydonlari. variants ichida id, sku, barcode, status, weightGrams, lengthMm, widthMm, heightMm, defaultType, images. Har rasmda id, imageUrl, sortOrder, primaryImage mavjud. Mavjud variant yoki rasm ID sini javobdan olib, forma ichida yashirin saqla. Rasmni GET imageUrl ga admin tokenli fetch bilan Blob sifatida yukla; URL nisbiy bo‘lsa backend origin bilan birlashtir.
+
+4. Yaratish va yangilash
+   POST /api/admin/products → 201. PUT /api/admin/products/{id} → 200. Ikkalasi uchun multipart/form-data ishlat; product qismi application/json bo‘lsin. Kamida bitta variant yubor. Har yangi rasm uchun noyob filePart nomi yarat va shu nom bilan faylni FormData ga qo‘sh.
+
+   product JSON namunasi:
+   {
+     "product": {
+       "slug": "telefon-x",
+       "brandId": null,
+       "categoryIds": ["<tanlangan kategoriya UUID>"],
+       "status": "DRAFT",
+       "productKind": null,
+       "warrantyMonths": 12
+     },
+     "variants": [
+       {
+         "sku": "PHONE-X-BLACK",
+         "barcode": null,
+         "defaultType": true,
+         "images": [
+           {"filePart":"file_black_front","sortOrder":0,"primaryImage":true},
+           {"filePart":"file_black_back","sortOrder":1,"primaryImage":false}
+         ]
+       },
+       {
+         "sku": "PHONE-X-WHITE",
+         "images": [{"filePart":"file_white_front","sortOrder":0,"primaryImage":true}]
+       }
+     ]
+   }
+
+   const form = new FormData();
+   form.append("product", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+   form.append("file_black_front", blackFrontFile);
+   form.append("file_black_back", blackBackFile);
+   form.append("file_white_front", whiteFrontFile);
+
+   Content-Type sarlavhasini brauzer belgilasin. JSON interceptor FormData ga application/json qo‘ymasligi kerak. Har variantda images massivi bo‘lsin, rasmsiz bo‘lsa []. PNG/JPEG, 2 MB va 2048 x 2048 gacha; bitta so‘rovga ko‘pi bilan 12 yangi rasm. Maksimal 100 variant va har variantda 20 rasm.
+
+   Yangilashda mavjud variant uchun id yubor. Mavjud rasmni saqlashda {"id":"<rasm UUID>","sortOrder":0,"primaryImage":true} yubor. Almashtirishda shu id bilan birga yangi filePart yubor. Ro‘yxatdan chiqarilgan variant yoki rasm backenddagi mahsulotdan olib tashlanadi. Shu sabab PUT ga saqlanadigan barcha variantlar va ularning rasmlari kirishi shart. Yangi variant yoki rasmga id yuborma.
+
+5. O‘chirish
+   DELETE /api/admin/products/{id} → 204. Admin tasdig‘idan keyin yubor. Mahsulot, variant va rasm bog‘lanishlari bitta tranzaksiyada o‘chiriladi. Boshqa yozuvlar bilan bog‘liqlik sababli 409 qaytsa backend xabarini ko‘rsat.
+
+6. Interfeys va xatolar
+   Variant qo‘shish/o‘chirish, har variantga galereyadan bir nechta rasm tanlash, oldindan ko‘rish, tartiblash va asosiy rasmni belgilash imkonini ber. Admin qo‘lda hech qanday rasm yoki variant UUID kiritmasin. Saqlash muvaffaqiyatidan keyin ro‘yxatni yangila. 400 da fields qiymatlarini mos formaga ko‘rsat. 409 da slug, SKU yoki boshqa bog‘liqlik xabarini chiqar. 413 da hajm limitini ko‘rsat. Xatoda barcha kiritilgan qiymatlar va tanlangan fayllarni saqla. 415 bo‘lsa product qismi Blob va application/json ekanini tekshir.
+
+VARIANTNING O‘LCHAMI VA OG‘IRLIGI
+weightGrams, lengthMm, widthMm va heightMm ixtiyoriy. Ularni dastlab yopiq «O‘lcham va og‘irlik (ixtiyoriy)» bo‘limiga joylashtir. Bo‘sh maydonni JSONga qo‘shma yoki null yubor. Bo‘sh qiymatni 0 ga aylantirma. Qiymat berilsa manfiy bo‘lmagan butun son bo‘lsin. Tahrirlashda mavjud qiymatlarni oldindan ko‘rsat. Admin qiymatni tozalasa null yubor. O‘lchamsiz variantni ham rasmlari bilan saqlash mumkinligini tekshir.
+
+MAHSULOT TAFSILOTLARI VA TAHRIRLASH
+
+- Ro‘yxatda mahsulot nomi yoki «Batafsil» tugmasi bosilganda GET /api/admin/products/{id} yubor. Javob {id,data,variants,createdAt,updatedAt,publishedAt}. Yetib kelgan ma’lumot bilan alohida sahifa yoki keng panelni to‘ldir.
+- data.uz va data.ru ichida title, shortDescription, description, seoTitle, seoDescription keladi. Eski mahsulotda tarjima null bo‘lishi mumkin. Nom topilmasa slug ni ko‘rsat. Brend va kategoriyalarni ro‘yxat API laridan nomlarga bog‘la. Sana yoki o‘lcham null bo‘lsa, kerakli joyda «Kiritilmagan» ko‘rsat.
+- Har variantga SKU, barkod, holat, asosiy variant belgisi, mavjud o‘lchamlar va rasm galereyasini ko‘rsat. Rasm preview uchun GET imageUrl ga admin Bearer tokeni bilan fetch qilib, Blob dan object URL yarat. Forma yopilganda object URL ni bekor qil.
+- Tahrirlashda PUT /api/admin/products/{id} uchun multipart yubor. product JSON ichidagi product.uz va product.ru maydonlariga tahrir qilingan tarjimalarni qo‘sh. Tarjima yuborilmasa mavjud qiymat saqlanadi. Til obyektini yuborsang title majburiy. Qolgan tarjima maydonlarini null qilib tozalash mumkin.
+- PUT ichida saqlanadigan barcha variantlar va rasmlarni yubor. Mavjud yozuv ID lari forma state ichida saqlanadi. Yangi rasmni filePart orqali qo‘sh, mavjud rasm almashtirilsa uning id si va yangi filePart birga ketadi. Formadan olib tashlangan variant yoki rasm saqlashda o‘chadi. Kamida bitta variant talab qilinadi.
+- Tafsilot sahifasida darhol o‘chirish uchun tasdiqdan so‘ng DELETE /api/admin/products/{id}/variants/{variantId} yoki DELETE /api/admin/products/{id}/images/{imageId} yubor. Variant o‘chirilsa uning rasmlari mahsulotdan uziladi. 204 qaytgach tafsilotni qayta yukla. Agar barcha variantlar o‘chirilgan bo‘lsa, keyingi multipart saqlash uchun yangi variant qo‘shish kerak.
+- Mahsulotni DELETE /api/admin/products/{id} orqali o‘chir. Bog‘liqlik tufayli 409 qaytsa server xabarini ko‘rsat. 204 javobni JSON sifatida o‘qima.
+- Rasm o‘chirish, tahrirlash va saqlash xatolarida boshqa maydonlar yo‘qolmasin. O‘zbekcha va ruscha matnlar, mobil va desktop ko‘rinishini tekshir.
+
+VARIANT NARXI (UZS)
+Multipart product JSON ichidagi variants elementiga regularPrice va salePrice yubor. Masalan {"sku":"PHONE-X","regularPrice":150000,"salePrice":129000,"images":[]}. Narx musbat va ko‘pi bilan ikki kasrli. Chegirmali narx ixtiyoriy va odatiy narxdan kichik. Eski narxni saqlash uchun ikkala maydonni yubormaslik mumkin. Chegirmani olib tashlash uchun regularPrice bilan salePrice:null yubor. GET tafsilotda variant.price = {currency,regularPrice,salePrice,amount} yoki null. Formani shu qiymatdan to‘ldir. data.uz.title va data.ru.title xaridor ko‘radigan nom. shortDescription kartada, description tafsilotda chiqadi.

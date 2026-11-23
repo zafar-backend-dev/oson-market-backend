@@ -1,0 +1,58 @@
+OSON MARKET — FRONTEND UCHUN ADMIN PROMPTI
+
+Mavjud admin menyusiga «Filiallar / Филиалы» va «Buyurtmalar / Заказы» havolalarini qo‘sh. Desktopda admin navigatsiyasi headerning alohida qatorida, telefonda ochiladigan menyuda tursin. Kategoriyalar, brendlar, mahsulotlar va Telegram sozlamalariga kirish saqlansin. Quyidagi sahifalarni mavjud auth va API klientiga ulang. Admin yo‘nalishlari ADMIN roliga ochilsin. Barcha /api/admin so‘rovlariga Authorization: Bearer <accessToken> va Accept-Language: uz yoki ru qo‘y. Mavjud avtomatik refresh oqimidan foydalan. Sahifalash 0 dan boshlanadi va API {content,page} qaytaradi. page ichida {size,number,totalElements,totalPages} mavjud.
+
+FILIALAR
+
+/admin/branches sahifasida rasm, nom, manzil, telefon, ish vaqti, xizmat turlari, kilometr tarifi va holatni ko‘rsat. Qo‘shish va tahrirlash formasini ulang.
+
+GET /api/admin/branches?page=0&size=20 — ro‘yxat.
+GET /api/admin/branches/{id} — tafsilot.
+POST /api/admin/branches — JSON orqali yaratish, 201.
+PUT /api/admin/branches/{id} — to‘liq JSON orqali yangilash.
+POST /api/admin/branches — multipart orqali rasm bilan yaratish, 201. branch qismi application/json Blob, image qismi fayl. Multipart Content-Type va boundary qiymatini brauzer belgilasin.
+PUT /api/admin/branches/{id}/image — multipart image orqali almashtirish.
+GET /api/admin/branches/{id}/image — PNG. Bearer bilan fetch qilib blob URL ishlat va komponent yopilganda URL’ni bo‘shat.
+DELETE /api/admin/branches/{id}/image — rasmni olib tashlash, 204.
+DELETE /api/admin/branches/{id} — tasdiqlashdan so‘ng filialni INACTIVE holatiga o‘tkazish, 204.
+POST /api/admin/branches/{id}/delivery-quote — {"latitude":41.31,"longitude":69.28}. Javob {branchId,distanceKm,pricePerKm,deliveryPrice,currency,distanceMethod}. STRAIGHT_LINE — to‘g‘ri chiziq bo‘yicha hisob. Tarif UZS/km. Backend qiymatlarini ko‘rsat.
+
+Yaratish va tahrirlash JSON namunasi
+{"code":"toshkent-markaz","nameUz":"Toshkent markaz","nameRu":"Ташкент центр","addressLine":"Markaz ko‘chasi 1","city":"Toshkent","phone":"+998901234567","email":"branch@example.com","workingHours":"09:00–20:00","location":{"latitude":41.30,"longitude":69.24},"active":true,"pickupEnabled":true,"deliveryEnabled":true,"pricePerKm":3000}
+
+Javob {id,code,nameUz,nameRu,addressLine,city,phone,email,workingHours,latitude,longitude,status,pickupEnabled,deliveryEnabled,pricePerKm,imageUrl}. Formada status ACTIVE bo‘lsa active=true, koordinatalarni location ichiga joyla. Code kichik lotin harfi, raqam va defisdan iborat, 64 belgigacha. Ismlar, manzil, shahar, telefon, koordinatalar va tarif majburiy. Email va ish vaqti ixtiyoriy. Koordinatalarni 7 kasr xonasigacha yubor. Tarif manfiy bo‘lmasin va 2 kasr xonasigacha bo‘lsin. Rasm tanlashda preview ko‘rsat, rasm ID so‘rama. 409 da band filial kodini yoki xizmat mavjud emasligini backend xabari bilan ko‘rsat.
+
+BUYURTMALAR
+
+GET /api/admin/orders?page=0&size=20&status=NEW_UNPAID&orderNumber=OM-... — filtrlar ixtiyoriy, orderNumber to‘liq raqam. Satr {id,orderNumber,status,phone,telegramAddress,currency,grandTotal,placedAt,fulfillmentMethod,branchId,paidAt}.
+GET /api/admin/orders/{id} — {order,allowedStatuses,fulfillmentMethod,branchId,deliveryAddress,latitude,longitude,distanceKm,pricePerKm,cancellationReason,paidAt,history}. history satri {previousStatus,status,actorId,reason,createdAt}. order ichida original buyurtma, items, subtotal, discountTotal, shippingTotal va grandTotal mavjud. Kontaktlar, mahsulotlar, filial, to‘lov va holatlar tarixini ko‘rsat.
+PUT /api/admin/orders/{id}/fulfillment — {"expectedStatus":"NEW_UNPAID","method":"DELIVERY","branchId":"<uuid>","deliveryAddress":"Ko‘cha, uy","location":{"latitude":41.31,"longitude":69.28}}. PICKUP uchun method va branchId yetarli, expectedStatus ham yuboriladi. Fulfillment faqat to‘lov qayd etilmagan PENDING, NEW_UNPAID yoki CONFIRMED buyurtmada o‘zgaradi. Javob yangilangan tafsilot. Narxni backend hisoblaydi.
+PATCH /api/admin/orders/{id}/status — {"expectedStatus":"NEW_UNPAID","status":"CANCELLED","reason":"Xaridor bekor qilishni so‘radi"}. Tugmalarni allowedStatuses dan qur. CANCELLED, DELIVERY_FAILED va NEW_PAID uchun bo‘sh bo‘lmagan reason majburiy, maksimal 1000 belgi. NEW_PAID sababida tasdiqlovchi izoh kiriting. paidAt to‘lov qo‘lda qayd etilganini bildiradi. Holatni saqlashda tugmani blokla. 409 da tafsilotni yangidan yukla. Qaytarilgan brauzer holati order.status bilan sinxron bo‘lsin.
+
+Holatlar va tarjimalar
+PENDING — Kutilmoqda / Ожидает подтверждения
+NEW_UNPAID — Yangi, to‘lanmagan / Новый, не оплачен
+NEW_PAID — Yangi, to‘langan / Новый, оплачен
+CONFIRMED — Tasdiqlangan / Подтверждён
+PROCESSING — Tayyorlanmoqda / Готовится
+READY_FOR_PICKUP — Olib ketishga tayyor / Готов к самовывозу
+PICKED_UP — Olib ketildi / Получен в пункте выдачи
+READY_FOR_DELIVERY — Yetkazib berishga tayyor / Готов к доставке
+SHIPPED — Jo‘natildi / Отправлен
+OUT_FOR_DELIVERY — Kuryer yetkazmoqda / Курьер доставляет заказ
+DELIVERY_FAILED — Yetkazib berilmadi / Не удалось доставить
+DELIVERED — Yetkazildi / Доставлен
+CANCELLED — Bekor qilindi / Отменён
+
+Olib ketish: NEW_UNPAID → NEW_PAID → PROCESSING → READY_FOR_PICKUP → PICKED_UP.
+Yetkazib berish: NEW_UNPAID → NEW_PAID → PROCESSING → READY_FOR_DELIVERY → OUT_FOR_DELIVERY → DELIVERED.
+PENDING, CONFIRMED va SHIPPED avvalgi buyurtmalarda uchrashi mumkin. CANCELLED va DELIVERY_FAILED holatlarida sababni ko‘rsat.
+Admin amallari uchun allowedStatuses dan foydalan. Telefonni buyurtmadagi order.phone dan ol. Yetkazilgan buyurtma tafsilotida serviceRating, serviceReview va ratedAt ni ko‘rsat.
+
+TELEGRAM
+GET /api/admin/orders/telegram-recipients — [{id,chatId,label}].
+POST /api/admin/orders/telegram-recipients — {"chatId":"-1001234567890","label":"Ombor"}, 201. Chat ID satr, label ixtiyoriy (100 belgi). Takroriy chat ID uchun 409.
+DELETE /api/admin/orders/telegram-recipients/{id} — yozuv UUID’si, 204. Tasdiq so‘ra, natijadan keyin ro‘yxatni yangila. Shaxsiy chat uchun botda /start bosiladi. Guruhda bot a’zo va yozish huquqiga ega bo‘lishi kerak.
+
+320, 768 va 1440 px kenglikda uz va ru tillarida sinov qil. Xatolarda message va fields ni ishlat. 401 uchun mavjud refresh, 403 uchun ruxsat ekrani, 404 uchun topilmadi holati. Saqlash amalini bosganda takroriy so‘rov yuborilishini chekla.
+

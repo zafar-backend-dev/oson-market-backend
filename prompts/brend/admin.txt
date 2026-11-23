@@ -1,0 +1,35 @@
+OSON MARKET — ADMIN PANELIDA BRENDLARNI BOSHQARISH
+
+Admin panelida brendlar ro‘yxati, tafsilot, yaratish, tahrirlash va o‘chirish amallarini backendga ulang. Mahalliy backend http://localhost:8080. Barcha so‘rovlar uchun Authorization: Bearer <admin JWT> va Accept-Language: uz yoki ru yubor.
+
+1. Ro‘yxat
+GET /api/admin/brands?page=0&size=20&q=samsung&active=true
+page noldan boshlanadi; size ko‘pi bilan 100. q ixtiyoriy, nom va slug bo‘yicha registrga sezgir bo‘lmagan qidiruv. active ixtiyoriy: true faol, false nofaol, parametr yo‘q bo‘lsa barchasi. Qidiruv yoki filtr o‘zgarsa page ni 0 ga qaytar.
+200 javob: {"content":[{"id":"<uuid>","data":{"slug":"samsung","name":"Samsung","logoMediaId":"<uuid>","active":true},"logoUrl":"/api/admin/brands/<uuid>/logo"}],"page":{"size":20,"number":0,"totalElements":1,"totalPages":1}}.
+Ro‘yxatda logotip, nom, slug, faol holat va amallarni ko‘rsat.
+
+2. Tafsilot
+GET /api/admin/brands/{id} → 200, {id,data,logoUrl}. logoUrl null bo‘lishi mumkin. Nisbiy URL ni backend manzili bilan birlashtir. Logotipni Bearer tokenli fetch bilan Blob sifatida yukla va object URL orqali ko‘rsat. Object URL ni komponent yopilganda yoki rasm almashganda bekor qil. GET /api/admin/brands/{id}/logo → image/png, rasm mavjud bo‘lmasa 404.
+
+3. Yaratish
+POST /api/admin/brands → 201, {id,data,logoUrl}.
+JSON shakli: {"name":"Samsung","slug":"samsung","active":true,"logoMediaId":null}.
+Logotipsiz yaratishda application/json yuborish mumkin. Logotip bilan yaratishda quyidagi multipart usulni qo‘llash kerak.
+
+4. Yaratish va tahrirlash uchun logotipli forma
+PUT /api/admin/brands/{id} → 200, {id,data,logoUrl}.
+Bitta formadan foydalan: brend nomi majburiy (180 belgigacha), slug majburiy (120 belgigacha), active majburiy boolean. Logotip ixtiyoriy. Admin galereyadan PNG yoki JPEG tanlasin. Fayl 2 MB va 2048 × 2048 pikselgacha. Preview, almashtirish va olib tashlash boshqaruvlari bo‘lsin. Media UUID inputini chiqarmagin.
+
+const payload = { name, slug, active };
+const form = new FormData();
+form.append("brand", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+if (selectedFile) form.append("file", selectedFile);
+if (removeLogo) form.append("removeLogo", "true");
+
+FormData uchun Content-Type sarlavhasini brauzerga qoldir. API klientning JSON interceptorini FormData uchun chetlab o‘t. Tahrirlashda fayl va removeLogo yuborilmasa mavjud logo saqlanadi. Yangi fayl logo o‘rniga qo‘yiladi. Logo olib tashlash uchun file yubormasdan removeLogo=true yubor. JSON PUT ishlatilsa, logoni saqlash uchun data.logoMediaId ni qayta yubor. Logotip qo‘shish, yangilash va olib tashlashda qo‘lda UUID kiritilmaydi.
+
+5. O‘chirish
+DELETE /api/admin/brands/{id} → 204, bo‘sh javob. Admin tasdig‘idan keyin yubor. Brend mahsulotga bog‘langan bo‘lsa 409 qaytadi. Backend xabarini ko‘rsat. O‘chirishdan keyin ro‘yxatni yangila.
+
+6. Interfeys va tekshiruv
+Mobil, planshet va desktopga mos ro‘yxat va forma. Loading, bo‘sh ro‘yxat, qayta urinish va validatsiya holatlari chiqsin. 400 fields ni tegishli maydonlarga bog‘la; 401 da qayta kirish, 403 da admin ruxsati, 409 da dublikat slug yoki bog‘liqlik, 413 da hajm xabarini ko‘rsat. Xatoda forma qiymatlariga tegma. ADMIN sifatida logoli va logosiz yaratish, qidirish, faol filtr, logoni almashtirish va olib tashlash, bog‘langan brendni o‘chirishdagi 409 ni tekshir.

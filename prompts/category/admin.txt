@@ -1,0 +1,51 @@
+OSON MARKET — ADMIN KATEGORIYALARI
+
+Mavjud frontend admin paneliga kategoriya boshqaruvini qo‘sh. Backend: http://localhost:8080. Har bir so‘rovga Authorization: Bearer <admin JWT> va Accept-Language: uz yoki ru yubor. POST va PUT uchun Content-Type: application/json.
+
+1. GET /api/admin/categories?page=0&size=20
+HTTP 200: {"content":[{"id":"<uuid>","data":{...}}],"page":{"size":20,"number":0,"totalElements":1,"totalPages":1}}.
+Sahifa indeksi 0 dan boshlanadi. Maksimal size 100. Ro‘yxatda ikkala tildagi nom, slug, ota kategoriya va aktiv holatni ko‘rsat. Mavjud yozuvda uz yoki ru tarjimasi null bo‘lishi mumkin.
+
+2. GET /api/admin/categories/{id}
+HTTP 200: {"id":"<uuid>","data":{...}}. Tahrirlash formasini shu javobdan to‘ldir.
+
+3. POST /api/admin/categories
+HTTP 201: {"id":"<uuid>","data":{...}}.
+So‘rov namunasi:
+{
+  "slug": "telefonlar",
+  "parentId": null,
+  "imageMediaId": null,
+  "sortOrder": 0,
+  "active": true,
+  "uz": {"name":"Telefonlar","description":"Smartfonlar va telefonlar","seoTitle":null,"seoDescription":null},
+  "ru": {"name":"Телефоны","description":"Смартфоны и телефоны","seoTitle":null,"seoDescription":null}
+}
+
+4. PUT /api/admin/categories/{id}
+HTTP 200: {"id":"<uuid>","data":{...}}. Yaratishdagi to‘liq JSONni yubor. Aktiv holatni o‘zgartirganda ham qolgan qiymatlarni saqla.
+
+5. DELETE /api/admin/categories/{id}
+HTTP 204, javob tanasi bo‘sh. Jadvaldan olib tashlashdan avval admin tasdig‘ini ol. Ichki kategoriya yoki mahsulot bog‘langan bo‘lsa 409 qaytadi.
+
+Validatsiya va holatlar
+- slug majburiy, 160 belgigacha. active, uz va ru majburiy.
+- uz.name va ru.name bo‘sh bo‘lmasin, har biri 200 belgigacha. seoTitle 255 belgigacha.
+- parentId va imageMediaId ixtiyoriy UUID. parentId null bo‘lsa, asosiy kategoriya. imageMediaId mavjud media yozuviga tegishli.
+- sortOrder ixtiyoriy, berilsa 0 yoki undan katta.
+- 400 uchun fields ro‘yxatidan foydalan, masalan uz.name. catalog.category.cycle bo‘lsa ota kategoriya tanlovini tuzat.
+- 401 da qayta kirishni so‘ra, 403 da admin ruxsati kerakligini ko‘rsat, 404 da yozuv topilmaganini ko‘rsat. 409 da backend xabarini chiqar. Xato bo‘lsa forma qiymatlarini saqla.
+
+GALEREYADAN RASM TANLASH
+
+Admin uchun UUID inputini yashir. PNG yoki JPEG rasmni galereya yoki fayl tanlash oynasidan tanla. Limit 2 MB, o‘lcham 2048 × 2048 gacha. Saqlashdan oldin preview ko‘rsat.
+
+- Rasmsiz yaratishda mavjud JSON POST ishlaydi. Rasm bilan yaratishda POST /api/admin/categories ga FormData yubor.
+- Rasmni almashtirish uchun PUT /api/admin/categories/{id} ga xuddi shu FormData yubor.
+- FormData qismlari:
+  form.append("category", new Blob([JSON.stringify(payload)], {type: "application/json"}));
+  form.append("file", selectedFile);
+  Payload avvalgi kategoriya JSON shaklida. Rasm tanlanganda imageMediaId ni kiritish shart emas.
+- FormData ishlatilganda Content-Type sarlavhasini qo‘lda qo‘yma. Brauzer boundary ni qo‘shadi. Authorization va Accept-Language sarlavhalarini yubor. API klient JSON interceptorini FormData uchun chetlab o‘t.
+- Tahrirlashda multipart so‘rovda file bo‘lmasa rasm saqlanadi. Rasmni olib tashlash uchun file yubormasdan form.append("removeImage", "true") qo‘sh. JSON orqali faqat matnni tahrirlasang, GET javobidagi data.imageMediaId ni avtomatik qayta yubor.
+- Admin javobi {id, data, imageUrl}. imageUrl nisbiy URL yoki null bo‘ladi. Admin rasmi uchun URL ni backend origin bilan birlashtir va Bearer tokenli fetch orqali Blob sifatida yukla. 201 yoki 200 dan keyin kategoriyalarni qayta yukla.

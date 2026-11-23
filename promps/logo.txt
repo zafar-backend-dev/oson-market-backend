@@ -1,0 +1,11 @@
+Oson Market admin paneliga «Sayt logosi / Логотип сайта» sahifasini qo‘sh. Sahifa faqat ADMIN roliga ochilsin. Unda joriy logo, fayl tanlash, oldindan ko‘rish va «Saqlash» tugmasi bo‘lsin.
+
+Logoni ko‘rsatish uchun GET /api/site/logo dan foydalan. Ochiq endpoint PNG rasm qaytaradi. URL’ni loyihadagi backend base URL orqali tuz. Domen yoki localhost manzilini komponentga qattiq yozib qo‘yma.
+
+Logoni almashtirish uchun PUT /api/admin/site/logo ga Authorization: Bearer <accessToken> yubor. FormData ichida faylni file nomi bilan yubor. Content-Type va multipart boundary’ni brauzer belgilasin. PNG yoki JPEG qabul qilinadi. Fayl 2 MB dan oshmasin, har bir tomoni ko‘pi bilan 2048 px bo‘lsin. Muvaffaqiyatli javob {url, updatedAt} shaklida keladi.
+
+Bitta umumiy SiteLogo komponentidan foydalan. Header, mobil menyu, footer, kirish, ro‘yxatdan o‘tish, admin panel va favicon’da bazadan kelgan sayt logosini ishlat. Mahsulot va brend rasmlariga tegma. Rasmni proporsiyasini saqlagan holda ko‘rsat.
+
+Saqlash muvaffaqiyatli tugaganda updatedAt orqali logo URL’ini yangila. Ochiq sahifadagi barcha logo nusxalari va favicon sahifani qayta yuklamasdan yangilansin. Yuklashda xato bo‘lsa, joriy logoni saqla va backend xabarini ko‘rsat. Logo yuklanmasa, «Oson Market» matnini ko‘rsat. Interfeys o‘zbekcha va ruscha ishlasin.
+
+Admin logo almashtirgach barcha joyda yangi rasm ko‘rinishini, mehmon logoni ko‘ra olishini va oddiy foydalanuvchi uni almashtira olmasligini tekshir.

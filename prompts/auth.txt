@@ -1,0 +1,89 @@
+OSON MARKET — AUTH API INTEGRATSIYASI UCHUN PROMPT
+
+Sen Oson Market klientini mavjud Java Spring Boot backendga ulayotgan dasturchisan. Quyidagi API shartnomasiga mos kirish, ro‘yxatdan o‘tish, parolni tiklash va profil oqimlarini qo‘sh. O‘zbekcha va ruscha interfeys tayyorla. Serverda mavjud endpointlardan foydalan.
+
+UMUMIY SOZLAMALAR
+Backend: http://localhost:8080. Mahalliy klient origini: http://localhost:3000 (app.cors-origin).
+JSON so‘rovlarida Content-Type: application/json yubor. Accept-Language: uz yoki ru yubor.   til uz. Backend xatolar, tasdiqlash xatlari va API xabarlarini tanlangan tilda yuboradi. PostgreSQL, Brevo, Google OAuth2 va JWT sozlamalari application.yaml ichida. Maxfiy qiymatlarni klient kodiga qo‘shma.
+
+API SHARTNOMASI
+
+1. POST /api/auth/sign-up — ro‘yxatdan o‘tishni boshlash.
+   Body: {"firstName":"ism","lastName":"familiya","email":"buyer@example.com","username":"buyer_01","password":"ExamplePass123"}
+   202: {"challengeId":"<uuid>","message":"<mahalliy xabar>"}
+   Ro‘yxatdan o‘tish formasida Ism va Familiya uchun alohida inputlar qo‘y. Ruscha yorliqlar Имя va Фамилия. Email, username va parol bilan birga beshta maydonni birinchi bosqichda yubor. Ism va familiya validatsiya xatosi fields massivida kelsa, xabarni mos input yonida ko‘rsat. Kodni qayta so‘rashda ham forma qiymatlarini saqla. Google tugmasi alohida OAuth oqimini boshlaydi.
+   firstName va lastName majburiy. Har biri 100 belgigacha. Bo‘sh yoki faqat probeldan iborat qiymat 400 qaytaradi. Ism va familiya kod tasdiqlangach profilga yoziladi. auth.signup.restart xatosida yangi ro‘yxatdan o‘tish so‘rovini ism va familiya bilan yubor.
+   Username 3–64 lotin harfi, raqam yoki pastki chiziqdan iborat. Parol 8–72 belgidan iborat bo‘lishi va UTF-8 formatida 72 baytdan oshmasligi kerak. Email va username kichik harfga normalizatsiya qilinadi. Emailga Brevo orqali kod yuboriladi.
+
+2. POST /api/auth/sign-up/verify — kodni tasdiqlab akkaunt va profil yaratish.
+   Body: {"challengeId":"<1-bosqichdagi uuid>","code":"004321"}
+   201: {"accessToken":"<jwt>","tokenType":"Bearer","expiresIn":900}
+
+3. POST /api/auth/sign-in — kirishning birinchi bosqichi.
+   Body: {"login":"buyer_01","password":"ExamplePass123"}
+   login sifatida buyer@example.com ham yuborilishi mumkin.
+   202: {"challengeId":"<uuid>","message":"<mahalliy xabar>"}.
+   Backend login va parolni tekshiradi, keyin Brevo orqali emailga kod yuboradi. Noto‘g‘ri ma’lumot uchun 401.
+
+4. POST /api/auth/sign-in/verify — tasdiqlash kodini tekshirib JWT olish.
+   Body: {"challengeId":"<3-bosqichdagi uuid>","code":"004321"}
+   200: {"accessToken":"<jwt>","tokenType":"Bearer","expiresIn":900}
+
+5. POST /api/auth/forgot-password — parol tiklash kodini so‘rash.
+   Body: {"email":"buyer@example.com"}
+   202: {"challengeId":"<uuid>","message":"<mahalliy xabar>"}
+   Xabar umumiy. Kod faqat mavjud faol akkauntga yuboriladi.
+
+6. POST /api/auth/reset-password — email kodi bilan yangi parol o‘rnatish.
+   Body: {"challengeId":"<5-bosqichdagi uuid>","code":"004321","newPassword":"NewExamplePass123"}
+   200: {"message":"<mahalliy xabar>"}
+   Ro‘yxatdan o‘tishdagi parol qoidalari amal qiladi. Backend eski tokenlarni bekor qiladi. Klient tokenni tozalab, kirish ekraniga qaytadi.
+
+7. GET /api/auth/me — joriy profilni olish.
+   Header: Authorization: Bearer <accessToken>
+   200: {"id":"<uuid>","email":"buyer@example.com","username":"buyer_01","role":"USER","language":"uz","firstName":"Zafar","lastName":"Ziyatov"}
+   role USER yoki ADMIN. Ism va familiya null bo‘lishi mumkin. 401 javobida avval quyidagi sessiyani yangilash oqimidan foydalan.
+
+8. GET /oauth2/authorization/google — Google orqali kirish yoki ro‘yxatdan o‘tishni boshlash.
+   Brauzerni http://localhost:8080/oauth2/authorization/google manziliga yo‘naltir. Backend Google avtorizatsiya sahifasiga o‘tkazadi. Google oqimida email kodi so‘ralmaydi.
+
+9. GET /login/oauth2/code/google — Google OAuth callback.
+   Google redirect URI http://localhost:8080/login/oauth2/code/google. Backend frontendga loginCode yoki error bilan redirect qiladi. JWT olish uchun POST /api/auth/google/exchange ishlatiladi.
+   Birinchi Google kirishida akkaunt va profil yaratiladi. Keyingi kirishda Google subject orqali o‘sha profil topiladi. Tasdiqlangan Gmail yoki Google Workspace emaili mavjud faol USER akkauntiga bog‘lanishi mumkin. Google oqimi Brevo kodini yubormaydi.
+
+10. POST /api/auth/refresh — access tokenni email kodisiz avtomatik yangilash.
+    Body: {}. Content-Type: application/json. Fetch uchun credentials: 'include', Axios uchun withCredentials: true.
+    200: {"accessToken":"<yangi jwt>","tokenType":"Bearer","expiresIn":900}. 401 va auth.session.expired javobi cookie yo‘q, muddati tugagan yoki bekor qilingan sessiya uchun qaytadi.
+    POST /api/auth/sign-in/verify, POST /api/auth/sign-up/verify, POST /api/auth/google/exchange javoblari oson_refresh nomli HttpOnly cookie o‘rnatadi. Ushbu chaqiruvlarda ham credentials: 'include' yubor. Cookie standart 30 kun amal qiladi, access JWT esa 15 daqiqa. Cookie’ni JavaScript bilan o‘qish yoki storage’ga yozish talab qilinmaydi. Frontend va API’ni bir sayt ostida joylashtir (masalan, bir domen yoki uning subdomenlari). Mahalliy frontend va API uchun bir xil localhost hostidan foydalan.
+
+11. POST /api/auth/logout — joriy brauzer sessiyasini tugatish.
+    Body: {}. Content-Type: application/json. credentials: 'include'. 204 javobida server refresh sessiyasini bekor qiladi va cookie’ni o‘chiradi. Klient lokal auth ma’lumotlari va yangilash timerini tozalaydi.
+
+KLIENT OQIMI VA XATOLAR
+- Har bir oqim uchun tegishli challengeId ni saqla. Kodni 6 raqamli satr sifatida yubor, boshidagi nollarni saqla.
+- Kod 300 soniya amal qiladi, qayta so‘rash oralig‘i 60 soniya va maksimal noto‘g‘ri urinishlar soni 5 ta. Bu qiymatlar application.yaml orqali sozlanadi. Yangi kod uchun tegishli 1-bosqich endpointini qayta chaqir. Kelgan challengeId ni saqla. Parol tiklashda kutish oralig‘idagi so‘rov oldingi challengeId ni qaytarishi mumkin. Ishlatilgan kod qayta qabul qilinmaydi.
+- expiresAt ni expiresIn dan hisobla va JWT muddati tugashidan 60 soniya oldin fon rejimida /api/auth/refresh chaqir. Sahifa qayta ochilganda yoki faol tabga qaytilganda saqlangan access token muddati tugagan bo‘lsa, refresh orqali yangi JWT ol. Profil va xavfsizlik sahifalaridagi timer access token muddatini ko‘rsatishi mumkin. Timer nolga tushishi chiqish amali hisoblanmaydi.
+- Himoyalangan API 401 qaytarsa, bitta umumiy refresh so‘rovini kut va yangi JWT bilan asl so‘rovni bir marta takrorla. Refresh endpointiga eski Authorization sarlavhasini yuborma. Bir vaqtda bir nechta API 401 qaytarsa, ular bitta refresh natijasini ishlatsin. 401 refresh javobida lokal sessiyani tozala va qayta kirishni so‘ra. Tarmoq yoki vaqtincha server xatosida sessiyani saqlab, kechikish bilan qayta urin. Logoutdan keyin hali tugamagan refresh javobi sessiyani tiklamasin.
+- API xatosi: {"code":"auth.code.invalid","message":"<mahalliy xabar>","fields":[]}. Validatsiyada fields massivida muammoli maydon nomlari kelishi mumkin. Security va Google xatolarida fields bo‘lmasligi mumkin.
+- 400: so‘rov yoki kod xato, kod ishlatilgan yoki muddati o‘tgan. 401: login/parol, token yoki OAuth autentifikatsiya xatosi. 403: ruxsat yo‘q yoki Google email tasdiqlanmagan. 409: email/username band yoki Google akkauntini bog‘lash ziddiyati. 429: kod so‘rash uchun kutish kerak. 503: Brevo email yubora olmadi.
+- So‘rov davomida qayta yuborishni blokla va serverning mahalliy xabarini ko‘rsat. Parol, OTP va tokenni logga yozma.
+
+LOYIHADA BAJARILGAN ISH VA TEKSHIRUV
+- Auth Java 17, Spring Boot va PostgreSQL asosida yozilgan. Parollar va OTP kodlar xeshlangan. Parol tiklanganda eski JWT credential version orqali rad etiladi.
+- Authga tegishli yettita JPA entity mavjud: User, UserProfile, AuthVerificationCode, Language, RefreshToken, UserDevice, MediaFile. Backend refresh tokenning xeshini saqlaydi. Parol tiklash, parol yoki email o‘zgarishi avvalgi refresh sessiyalarini bekor qiladi.
+- Backendni IntelliJ’da uz.osonmarket.OsonMarketApplication yoki terminalda mvn spring-boot:run orqali ishga tushir. PostgreSQL, Google redirect URI va Brevo jo‘natuvchisini application.yaml bilan mosla.
+- Sinovda ikki til, kod muddati, urinishlar limiti, Google orqali kirish va access token tugagandan keyingi avtomatik yangilashni qamrab ol. Bir nechta API so‘rovi parallel kelganda va sahifa yangilanganda ham sessiya davom etishini tekshir. Logoutdan yoki parol yangilanishidan keyin eski refresh cookie bilan sessiya ochilmasligini tekshir.
+
+
+## Swagger
+
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
+- Sign-in yoki sign-up kodini tasdiqlagach, Swagger UI dagi Authorize maydoniga accessToken qiymatini Bearer prefiksisiz kiriting. Keyin GET /api/auth/me ni sinang.
+- Google OAuth oqimini brauzerda http://localhost:8080/oauth2/authorization/google orqali boshlang.
+
+Tilni tanlash uchun Accept-Language sarlavhasida bitta qiymat yuboring (uz yoki ru). Brauzer yuboradigan tillar ro‘yxati standart o‘zbek tilidan foydalanadi. Swagger UI dagi Accept-Language tanlovining standart qiymati uz. Tanlangan til sign-in javobi va email kod xatiga bir xil qo‘llanadi.
+
+Kod qayta so‘ralganda 429 auth.cooldown javobida retryAfterSeconds maydoni va Retry-After HTTP sarlavhasi qolgan soniyalarni beradi. Klient tugmani shu muddatga bloklab, retryAfterSeconds qiymatidan sanagich qo‘yadi. Masalan, {"code":"auth.cooldown","message":"Yangi kodni 42 soniyadan keyin so‘rashingiz mumkin.","fields":[],"retryAfterSeconds":42}.
+
+Google callback va POST /api/auth/google/exchange shartnomasi prompts/google-authorızxatıon.txt faylida.

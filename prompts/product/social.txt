@@ -1,0 +1,37 @@
+OSON MARKET — MAHSULOT LAYKLARI, IZOH VA JAVOBLAR
+
+Mahsulot tafsiloti sahifasiga mahsulot layki va «Izohlar / Комментарии» bo‘limini ulang. Mavjud React komponentlari, auth xizmati, avtomatik token yangilash va uz/ru tarjimalaridan foydalaning. Quyidagi yo‘llardagi {productId} katalog javobidagi mahsulot UUID’si. Brauzer URL’ida slug bo‘lsa, avval mahsulot ID’sini katalogdan oling.
+
+API
+
+Asosiy yo‘l /api/catalog/products/{productId}.
+
+GET /social — 200, {likeCount, likedByMe, commentCount}. commentCount faol izohlar va javoblarni o‘z ichiga oladi.
+GET /comments?page=0&size=20 — 200, asosiy izohlar.
+GET /comments/{commentId}/replies?page=0&size=20 — 200, shu izohning bevosita javoblari. Javobga ham xuddi shu usulda uning ID’si bilan javob yozish va javoblarini yuklash mumkin.
+POST /comments — {"body":"Izoh matni"}, 201 va yaratilgan izoh.
+POST /comments/{commentId}/replies — {"body":"Javob matni"}, 201 va yaratilgan javob.
+PATCH /comments/{commentId} — {"body":"Yangilangan matn"}, 200 va yangilangan izoh.
+DELETE /comments/{commentId} — 204.
+PUT /like — mahsulotga layk.
+DELETE /like — mahsulot laykini olib tashlash.
+PUT /comments/{commentId}/like — izoh yoki javobga layk.
+DELETE /comments/{commentId}/like — izoh yoki javob laykini olib tashlash.
+
+Layk amallari body talab qilmaydi va 200, {likeCount, likedByMe} qaytaradi. Takroriy PUT yoki DELETE bir xil yakuniy holatni beradi. Tugmani so‘rov vaqtida bloklang, hisoblagich va tugma holatini server javobidan yangilang.
+
+Izoh va javob shakli {id,parentId,authorUsername,body,createdAt,editedAt,deleted,likeCount,likedByMe,replyCount,ownedByMe}. Asosiy izohda parentId null. GET ro‘yxatlari {content,page} shaklida. page ichida number, size, totalElements va totalPages keladi. Sahifa 0 dan boshlanadi, maksimal size 50. Asosiy izohlar va har bir javob zanjiri uchun sahifalashni alohida yuriting.
+
+INTERFEYS VA KIRISH
+
+- Mahsulot laykini sarlavha yonida, izoh laykini tegishli izoh ostida ko‘rsating. Har birining o‘z soni va bosilgan holati bo‘lsin. Tugmaga aria-pressed va tarjima qilingan nom bering.
+- Izohda muallif, vaqt, matn va «Javob berish / Ответить» tugmasi ko‘rinsin. Javob formasida qaysi izohga yozilayotgani ko‘rinsin. Javoblarni parentId asosida o‘sha izoh ostida joylashtiring. «Javoblarni ko‘rish» tugmasida replyCount ko‘rsating.
+- Izoh matni majburiy, 2000 belgigacha. Oddiy matn sifatida, qator tashlashlarni saqlagan holda chiqaring. ownedByMe=true bo‘lganda tahrirlash va o‘chirishni ko‘rsating. O‘chirishni tasdiqlating. deleted=true bo‘lganda «Izoh o‘chirilgan / Комментарий удалён» va mavjud javoblarni ko‘rsating. Shu izohga yangi javob yozish yoki layk bosish tugmalarini yashiring.
+- Mehmon GET so‘rovlarini Bearer tokenisiz bajaradi. Mehmon yozish, javob berish yoki layk bosishga urinsa, mavjud kirish oynasini oching. Mahsulot sahifasini va yozilgan matnni saqlang. Muvaffaqiyatli kirishdan keyin shaxsiy layk holatlarini qayta yuklang va foydalanuvchini o‘sha izoh yoki javob formasiga qaytaring.
+- Tizimga kirilgan bo‘lsa, barcha so‘rovlarga Authorization: Bearer <accessToken> qo‘shing, GET so‘rovlarida ham. Accept-Language: uz yoki ru yuboring. JSON body uchun Content-Type: application/json ishlating.
+- 401 da mavjud token yangilash oqimini ishlating. Sessiya tiklanmasa kirish oynasini oching. 403 da backend xabarini ko‘rsating. 404 da tegishli izoh yoki mahsulotni qayta yuklang. Xatoda formadagi matnni saqlang.
+- Muvaffaqiyatli yozish, javob berish yoki o‘chirishdan keyin tegishli ro‘yxat, javoblar soni va /social hisoblagichlarini sinxronlang. Sahifa almashganda boshqa mahsulotdan qolgan javob yoki layk holati ko‘rinmasin.
+
+TEKSHIRISH
+
+Mehmon izohlarni ko‘radi va layk bosishga uringanda kirish oynasi ochiladi. Tizimga kirgan foydalanuvchi mahsulot va izohga layk qo‘yib qaytarib oladi. Javob to‘g‘ri izoh ostida chiqadi. Asosiy izoh o‘chirilganda javoblari ko‘rinadi. Ikki akkaunt bilan tahrirlash ruxsatini va bir xil layk so‘rovi takrorlanganda son o‘zgarmasligini tekshiring.

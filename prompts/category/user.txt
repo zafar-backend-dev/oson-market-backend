@@ -1,0 +1,81 @@
+OSON MARKET — XARIDOR KATALOGINI ULASH
+
+Katalogni mehmonlar va akkauntga kirgan xaridorlar uchun och. Katalog sahifasi login talab qilmasin. Mahalliy backend http://localhost:8080.
+
+1. Katalog daraxti
+GET /api/catalog/tree
+Accept-Language: uz yoki ru. Standart til o‘zbekcha. Ushbu so‘rovga JWT kerak emas. Eski/yaroqsiz tokenni umumiy interceptordan bu ommaviy GET so‘roviga qo‘shma.
+
+200 javobning shakli:
+{
+  "categories": [
+    {
+      "id": "kategoriya-uuid",
+      "parentId": null,
+      "slug": "telefonlar",
+      "name": "Telefonlar",
+      "description": null,
+      "seoTitle": null,
+      "seoDescription": null,
+      "language": "uz",
+      "imageUrl": null,
+      "sortOrder": 0,
+      "children": [],
+      "products": [
+        {
+          "id": "mahsulot-uuid",
+          "slug": "telefon-x",
+          "title": "Telefon X",
+          "shortDescription": null,
+          "description": null,
+          "seoTitle": null,
+          "seoDescription": null,
+          "language": "uz",
+          "brand": {"id":"brend-uuid","name":"Brend","slug":"brend","logoUrl":null},
+          "productKind": null,
+          "warrantyMonths": 12,
+          "variants": [
+            {
+              "id": "variant-uuid",
+              "sku": "PHONE-X-BLACK",
+              "weightGrams": null,
+              "lengthMm": null,
+              "widthMm": null,
+              "heightMm": null,
+              "defaultType": true,
+              "price": {"currency":"UZS","regularPrice":150000,"salePrice":129000,"amount":129000},
+              "images": [
+                {"id":"rasm-uuid","imageUrl":"/api/catalog/products/mahsulot-uuid/images/rasm-uuid","sortOrder":0,"primaryImage":true}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "uncategorizedProducts": []
+}
+
+Har bir children elementi ayni kategoriya shaklida. products ichida bevosita shu kategoriyaga bog‘langan mahsulotlar bor. Bitta mahsulot bir nechta kategoriyada takrorlanishi mumkin; umumiy mahsulot ro‘yxatidan id bo‘yicha takrorlarini olib tashla. Kategoriyasiz nashrdagi yozuvlar uncategorizedProducts ichida kelishi mumkin. Backend faqat faol kategoriya shoxlarini hamda ACTIVE yoki PUBLISHED mahsulotlarni qaytaradi. DRAFT mahsulot katalogda chiqmaydi. So‘ralgan tarjima topilmasa ikkinchi tilga yoki slugga qaytiladi. Til o‘zgarganda daraxtni qayta yukla.
+
+2. Rasm va mahsulot sahifasi
+Nisbiy imageUrl va logoUrl ni backend origin bilan birlashtir va img src da ishlat.
+- GET /api/categories/{id}/image — kategoriya rasmi.
+- GET /api/catalog/products/{id}/images/{imageId} — mahsulot varianti rasmi.
+- GET /api/catalog/brands/{id}/logo — faol brend logotipi.
+Rasm URLlari mehmonlar uchun ham ochiq. URL null yoki rasm 404 bo‘lsa placeholder ko‘rsat. Mahsulot sahifasini tree ichidagi id yoki slug bo‘yicha topib och. Qayta yuklashda tree ni qayta ol. SKU va variantlarni ko‘rsat, defaultType bo‘lgan variantni avval tanla, primaryImage bo‘lgan rasmni qopqoq qil. Berilmagan o‘lchamlarni yashir. Narx variants[].price ichida keladi. Ombor qoldig‘i ushbu javobda yo‘q.
+
+3. Buyurtma tugmasi
+Mehmon «Buyurtma berish»ni bosganda mavjud login oynasini och. Mahsulot, variant va savat tanlovini saqla. Kirish tugagach checkout formasida telefon va Telegram manzilini so‘ra va prompts/order/user.txt dagi POST /api/orders shartnomasini ishlat. Tizimga kirgan foydalanuvchiga checkout formasini darhol och. Buyurtma saqlangach server qaytargan raqam va yakuniy summani ko‘rsat.
+
+4. Mavjud kategoriya GET endpointlari
+GET /api/categories — faol asosiy kategoriyalar.
+GET /api/categories?parentId={id} — bevosita faol ichki kategoriyalar.
+GET /api/categories/{id} — bitta faol kategoriya.
+Katalogning asosiy ma’lumot manbasi sifatida /api/catalog/tree dan foydalan. Mobil, planshet va desktopda yuklanish, bo‘sh katalog, xato va qayta urinish holatlarini tekshir.
+
+MAHSULOT KARTASI VA SAVAT
+- Kartada rasm, product.title, product.shortDescription yoki product.description, variant narxi va «Savatga qo‘shish» tugmasi ko‘rinsin. SKU ni mahsulot nomi o‘rnida ishlatma. Tafsilotda to‘liq tavsifni ko‘rsat.
+- Standart yoki tanlangan variantning price.amount qiymatini UZS formatida chiqar. salePrice bo‘lsa regularPrice ustidan chizilgan holda ko‘rsat. price null bo‘lsa «Narx kiritilmagan» yozuvi chiqsin va xarid amali bloklansin.
+- Birinchi bosishda variantId bo‘yicha savatga 1 dona qo‘sh. Tugma o‘rnida chapda −, o‘rtada son, o‘ngda + chiqsin. 0 da savatdan olib tashla. Kartochka, tafsilot va sarlavhadagi savat bitta holatdan olinsin. Savat brauzerda saqlansin. Mehmon savatga qo‘sha oladi, login buyurtma bosqichida kerak.
+- Savat panelida nom, variant, birlik narxi, son va jami ko‘rsat. Buyurtma yaratish va serverda narxni qayta tekshirish checkout qismiga tegishli.

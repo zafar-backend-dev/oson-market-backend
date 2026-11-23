@@ -1,0 +1,78 @@
+OSON MARKET — FRONTEND UCHUN XARIDOR PROMPTI
+
+Mavjud savat, auth va API klientidan foydalanib filiallar ro‘yxati, checkout, buyurtmalarim va bildirishnomalarni ulang. O‘zbek va rus tillarini ishlat. JSON API’larda Accept-Language: uz yoki ru yubor. /api/orders so‘rovlarida Authorization: Bearer <accessToken> yubor va mavjud avtomatik refresh oqimidan foydalan. Sahifalangan javob {content,page}. Sahifa 0 dan boshlanadi.
+
+FILIAL VA CHECKOUT
+
+GET /api/branches?page=0&size=20 — mehmonlar ham faol filiallarni ko‘radi. Satr {id,name,addressLine,city,phone,email,workingHours,latitude,longitude,pickupEnabled,deliveryEnabled,imageUrl}. GET /api/branches/{id}/image — ochiq PNG. Rasm yo‘q bo‘lsa placeholder ishlat. Til o‘zgarganda filial nomlarini qayta yukla.
+
+Mehmon «Buyurtma berish»ni bosganda kirish oynasini och. Kirishdan keyin savatni tikla. Checkout’da telefon, Telegram manzili, xizmat turi va filialni so‘ra. PICKUP uchun pickupEnabled=true, DELIVERY uchun deliveryEnabled=true bo‘lgan filiallar tanlansin. Filial manzili, ish vaqti va telefonini ko‘rsat.
+
+DELIVERY tanlanganda yozma manzil hamda lokatsiya talab qilinadi. Geolocation ruxsatini «Joylashuvimni olish» bosilganda so‘ra. Ruxsat berilmasa, xaritada nuqta tanlashni yoki koordinatalarni qo‘lda kiritishni taklif qil. Lokatsiyani 7 kasr xonasigacha yubor. Latitude −90…90, longitude −180…180. Filial yoki lokatsiya o‘zgarsa avvalgi hisobni tashla va yangi hisobni ol.
+
+POST /api/orders/delivery-quote/{branchId}
+{"latitude":41.31,"longitude":69.28}
+Javob {branchId,distanceKm,pricePerKm,deliveryPrice,currency,distanceMethod}. Masofa STRAIGHT_LINE, ya’ni to‘g‘ri chiziq bo‘yicha. Yakuniy hisob buyurtma javobidan olinadi. PICKUP yetkazish narxi 0.
+
+POST /api/orders
+{
+  "requestId":"<crypto.randomUUID()>",
+  "phone":"+998901234567",
+  "telegramAddress":"@oson_xaridor",
+  "items":[{"variantId":"<variant UUID>","quantity":2}],
+  "fulfillment":{
+    "method":"DELIVERY",
+    "branchId":"<filial UUID>",
+    "deliveryAddress":"Ko‘cha, uy yoki binoga kirish ma’lumoti",
+    "location":{"latitude":41.31,"longitude":69.28}
+  }
+}
+PICKUP uchun fulfillment ichida {"method":"PICKUP","branchId":"<filial UUID>"} yubor. 1–50 ta turli variant, har biri 1–99 dona. Telefon va Telegram majburiy. Telegram @username yoki https://t.me/username shaklida kiritiladi. Backend narxni hisoblaydi. Tarmoq xatosidan keyin o‘zgarmagan so‘rovni ayni requestId bilan qayta yubor. Forma o‘zgarsa yangi UUID yarat. 201 yangi buyurtma, 200 oldin bajarilgan so‘rov. Har ikkisida ham qaytgan raqam va yakuniy summani ko‘rsat, savatdan faqat muvaffaqiyatli javobdan keyin tegishli variantlarni olib tashla. Yangi checkout buyurtmasi NEW_UNPAID. To‘langanlikni paidAt asosida ko‘rsat.
+
+BUYURTMALARIM
+
+GET /api/orders?page=0&size=20 — ro‘yxat.
+GET /api/orders/{id} — {id,orderNumber,status,currency,phone,telegramAddress,placedAt,subtotal,discountTotal,shippingTotal,grandTotal,items,fulfillmentMethod,branchId,deliveryAddress,latitude,longitude,distanceKm,pricePerKm,cancellationReason,paidAt}.
+items satri {variantId,sku,title,quantity,unitPrice,discountAmount,lineTotal}. Eski buyurtmalarda filial va yetkazish maydonlari bo‘sh bo‘lishi mumkin.
+GET /api/orders/{id}/history — [{status,reason,createdAt}], eng eski holatdan boshlab. Bekor qilish yoki yetkazish muvaffaqiyatsizligi sababini ko‘rsat. Hozirgi holatni buyurtma tafsilotidan ol. 404 holatida «Buyurtma topilmadi» sahifasini ko‘rsat.
+
+Holat tarjimalari
+PENDING — Kutilmoqda / Ожидает подтверждения
+NEW_UNPAID — Yangi, to‘lanmagan / Новый, не оплачен
+NEW_PAID — Yangi, to‘langan / Новый, оплачен
+CONFIRMED — Tasdiqlangan / Подтверждён
+PROCESSING — Tayyorlanmoqda / Готовится
+READY_FOR_PICKUP — Olib ketishga tayyor / Готов к самовывозу
+PICKED_UP — Olib ketildi / Получен в пункте выдачи
+READY_FOR_DELIVERY — Yetkazib berishga tayyor / Готов к доставке
+SHIPPED — Jo‘natildi / Отправлен
+OUT_FOR_DELIVERY — Kuryer yetkazmoqda / Курьер доставляет заказ
+DELIVERY_FAILED — Yetkazib berilmadi / Не удалось доставить
+DELIVERED — Yetkazildi / Доставлен
+CANCELLED — Bekor qilindi / Отменён
+
+BILDIRISHNOMALAR VA WEBSOCKET
+
+GET /api/orders/notifications?page=0&size=20 — inbox. Satr {id,type,orderId,orderNumber,status,createdAt,readAt,reason,action,title,message}. readAt null bo‘lsa o‘qilmagan. title va message serverdan tanlangan tilda keladi.
+GET /api/orders/notifications/unread-count — {count}, header qo‘ng‘irog‘ida ko‘rsat.
+PATCH /api/orders/notifications/{id}/read — body yuborilmaydi, 204. O‘qilgandan keyin badge va ro‘yxatni yangila. orderId orqali tafsilotga o‘t.
+
+Backend URL asosida /ws/orders manziliga ulaning. Mahalliy HTTP uchun ws, HTTPS uchun wss. Socket ochilishi bilan 10 soniya ichida birinchi matnli xabar {"type":"AUTH","accessToken":"<amaldagi JWT>"} yuborilsin. JWT’ni URL yoki logga joylama. Server {"type":"READY"} qaytaradi. Keyin server voqealari {"type":"ORDER_STATUS_CHANGED","notificationId":"<uuid>","orderId":"<uuid>","status":"CANCELLED","createdAt":"<ISO vaqt>"} shaklida keladi. Bu voqea kelganda notificationId bo‘yicha takroriy voqeani filtrlab, inbox, unread count va ochiq buyurtma tafsiloti hamda tarixini qayta yukla.
+
+JWT refresh bo‘lganda oldingi socketni yopib yangi JWT bilan qayta ulan. Ulanish uzilganda sessiya faol bo‘lsa kechikishni oshirib qayta ulan. Socket jim bo‘lsa taxminan 5 daqiqada uzilishi mumkin. READY va tab fokusiga qaytilganda REST orqali yangila. Ulanish bo‘lmasa faol tabda polling ishlat. Logout paytida socketni, qayta ulanish timerlarini va auth ma’lumotlarini tozala. Mehmon uchun socket ochma. WebSocket jonli ulangan web va ilovaga ishlaydi. Ilova yopiq bo‘lgandagi OS push alohida integratsiya talab qiladi. HTML emailni backend yuboradi.
+
+Uz va ru tillarida, desktop va telefonda filial tanlash, lokatsiyaga ruxsat berilmaganda alternativ oqim, server narxi, buyurtmani takror yuborish, WebSocket qayta ulanishi va bekor qilish sababini tekshir.
+
+YANGI XARIDOR AMALLARI
+
+Checkout’dagi phone maydoni aynan shu buyurtma uchun ishlatiladi. Profil raqamini oldindan to‘ldirish mumkin. Xaridor uni istalgan bog‘lanish raqamiga almashtira olsin. + belgisi, probel, qavs va defisga ruxsat beriladi. Ajratgichlar olib tashlanganda raqam 7–15 ta raqamdan iborat bo‘lsin. Profilga avtomatik yozma. Har bir yangi buyurtmada fulfillment va branchId yubor.
+
+Olib ketish: NEW_UNPAID → NEW_PAID → PROCESSING → READY_FOR_PICKUP → PICKED_UP.
+Yetkazib berish: NEW_UNPAID → NEW_PAID → PROCESSING → READY_FOR_DELIVERY → OUT_FOR_DELIVERY → DELIVERED.
+PENDING, CONFIRMED va SHIPPED avvalgi buyurtmalarda uchrashi mumkin. CANCELLED va DELIVERY_FAILED holatlarida sababni ko‘rsat.
+
+GET /api/orders/{id} javobida canCancel, canRate, serviceRating, serviceReview, ratedAt ham mavjud.
+PATCH /api/orders/{id}/cancel — {"reason":"Masalan, boshqa vaqtga kerak"}. Faqat canCancel=true bo‘lganda tugmani chiqar. Xaridor faqat o‘zining hali to‘lanmagan yangi buyurtmasini bekor qiladi. Sabab majburiy, maksimum 1000 belgi. 200 da buyurtma va tarixni yangila, 409 da joriy holatni qayta yukla.
+PUT /api/orders/{id}/rating — {"rating":5,"comment":"Ixtiyoriy izoh"}. canRate=true bo‘lganda 1–5 yulduz tanlashga ruxsat ber. Izoh maksimum 1000 belgi. Yetkazilgan buyurtma bir marta baholanadi. Javobdan serviceRating va serviceReview ni ko‘rsat.
+
+DELIVERED bo‘lganda inbox va WebSocket ORDER_STATUS_CHANGED xabarida action: "RATE_SERVICE" keladi. «Xizmatni baholash / Оценить сервис» tugmasi xabardagi orderId orqali tafsilotga olib borsin. Joriy canRate qiymatiga qarab forma yoki saqlangan bahoni ko‘rsat.

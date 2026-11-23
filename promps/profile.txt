@@ -1,0 +1,59 @@
+OSON MARKET — PROFIL API INTEGRATSIYASI
+
+Sen Oson Market klientining profil bo‘limini mavjud Spring Boot backendga ulayotgan dasturchisan. Quyidagi endpointlar, so‘rov namunalari va javob qoidalariga amal qil.
+
+Umumiy sozlamalar
+- Backend http://localhost:8080. Swagger http://localhost:8080/swagger-ui.html.
+- Barcha profil API so‘rovlariga Authorization: Bearer <accessToken> yubor. Profil JWT egasiga tegishli. URL yoki JSONga userId yuborilmaydi.
+- JSON so‘rovlarida Content-Type: application/json. Accept-Language: uz yoki ru yubor. Standart til uz. Profilga yozilgan language ni klient qayta o‘qib, keyingi so‘rov sarlavhasiga qo‘ysin.
+- 401 kelganda klient sessiyasini tozalab, qayta login so‘ra.
+
+1. GET /api/profile — o‘z profilini ko‘rish
+   So‘rov tanasi yo‘q. 200 javob namunasi:
+   {"id":"<uuid>","username":"buyer_01","email":"buyer@example.com","role":"USER","language":"uz","firstName":"Zafar","lastName":"Ziyatov","phone":"+998901234567","avatarUrl":null,"emailVerifiedAt":"2026-01-01T10:00:00Z","createdAt":"2026-01-01T10:00:00Z","updatedAt":"2026-01-01T10:00:00Z"}
+   Ayrim profil maydonlari null bo‘lishi mumkin. /api/auth/me avvalgi auth shartnomasi bo‘yicha ishlaydi.
+
+2. PUT /api/profile — ism, familiya va telefonni saqlash
+   {"firstName":"Zafar","lastName":"Ziyatov","phone":"+998901234567"}
+   200 va yangilangan profil. Bu uchta maydon to‘liq almashtiriladi. Qiymatni saqlab qolish uchun joriy qiymatini ham yubor. null yoki bo‘sh satr maydonni tozalaydi. Ism va familiya 100 belgigacha. Telefon raqamdan boshlanadi, oldiga + qo‘yish mumkin. Raqam, probel, qavs va defis ishlatiladi. Telefon profil ma’lumoti sifatida saqlanadi.
+
+3. PUT /api/profile/username — foydalanuvchi nomini o‘zgartirish
+   {"username":"yangi_user"}
+   200 va yangilangan profil. 3–64 ta lotin harfi, raqam yoki pastki chiziq. Kichik harfga o‘tkaziladi. Band username 409 profile.username.taken. Keyingi kirishda yangi username ishlatiladi.
+
+4. PUT /api/profile/language — tilni saqlash
+   {"language":"ru"}
+   200 va yangilangan profil. Faqat uz yoki ru. Klient interfeys tilini va keyingi Accept-Language sarlavhasini yangi qiymatga o‘zgartiradi.
+
+5. PUT /api/profile/password — joriy parol yordamida parolni o‘zgartirish
+   {"currentPassword":"OldPassword123","newPassword":"NewPassword123"}
+   200 va {"message":"Parol yangilandi. Qayta tizimga kiring."}
+   Yangi parol 8–72 belgi va ko‘pi bilan 72 UTF-8 bayt. Joriy paroldan farqli bo‘lishi shart. Joriy parol xato bo‘lsa 400 profile.password.invalid. Muvaffaqiyatdan keyin oldingi JWT yaroqsiz bo‘ladi va qayta kirish kerak. Google orqali yaratilgan akkauntda parol hali o‘rnatilmagan bo‘lsa, auth parolni tiklash oqimi orqali parol yarating.
+
+6. POST /api/profile/email — yangi emailga tasdiqlash kodi yuborish
+   {"email":"newbuyer@example.com","currentPassword":"NewPassword123"}
+   202 va {"challengeId":"<uuid>","message":"Tasdiqlash kodi yangi emailga yuborildi."}
+   Hozirgi email bu bosqichda saqlanadi. Email band bo‘lsa 409 profile.email.taken. Kodni qayta so‘rashda 429 bo‘lsa retryAfterSeconds va Retry-After orqali sanagich ko‘rsat. Email va joriy parolni so‘rov paytida yubor.
+
+7. POST /api/profile/email/verify — yangi emailni tasdiqlash
+   {"challengeId":"<6-bosqichdagi uuid>","code":"004321"}
+   200 va {"message":"Email yangilandi. Qayta tizimga kiring."}
+   Kod olti raqamli satr, boshidagi nollarni saqla. Kod faqat joriy akkauntning email o‘zgartirish so‘rovi uchun amal qiladi. Muvaffaqiyatdan keyin eski JWT yaroqsiz. Yangi email yoki username bilan qayta kir. Kod xato, muddati tugagan yoki ishlatilgan bo‘lsa 400 auth.code.invalid.
+
+8. PUT /api/profile/avatar — avatar yuklash yoki almashtirish
+   multipart/form-data, file maydoni. Browser FormData ishlatganda Content-Type sarlavhasini browserga qoldir.
+   curl -X PUT http://localhost:8080/api/profile/avatar -H "Authorization: Bearer TOKEN" -F "file=@avatar.png"
+   200 va yangilangan profil. avatarUrl qiymati /api/profile/avatar bo‘ladi. PNG va JPEG, 2 MB gacha, har o‘lcham 2048 pikselgacha. Server rasmni PNG formatida saqlaydi. Haddan katta fayl 413, yaroqsiz format yoki o‘lcham 400.
+
+9. GET /api/profile/avatar — avatar rasm fayli
+   200 va image/png binar javob. Avatar bo‘lmasa 404. JWT sarlavhasi bilan fetch orqali Blob ol va object URL orqali ko‘rsat. Avatar almashtirilganda avvalgi object URLni bekor qil.
+
+10. DELETE /api/profile/avatar — avatarni o‘chirish
+    So‘rov tanasi yo‘q. 204 va bo‘sh javob. Qayta yuborish ham 204 qaytaradi. Interfeysda standart avatarni ko‘rsat.
+
+Xato namunasi
+{"code":"request.invalid","message":"Yuborilgan ma’lumotlarni tekshiring.","fields":["username"]}
+Swagger’da Authorize oynasiga JWT qiymatini Bearer prefiksisiz kiriting.
+
+Tekshiruv
+Profil ma’lumotlari qayta ochilganda saqlangan bo‘lsin. Tilsiz so‘rovda o‘zbekcha va ru bilan ruscha javobni tekshir. Ikki akkaunt bir-birining profiliga kira olmasin. Email faqat to‘g‘ri kod bilan o‘zgarsin. Parol yoki email o‘zgargandan keyin eski token 401 qaytarsin. Avatar yuklash, ko‘rish va o‘chirishni sinab ko‘r.
