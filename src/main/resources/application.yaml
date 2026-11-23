@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: Oson Market
+  messages:
+    basename: i18n/messages
+    fallback-to-system-locale: false
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 25MB
+  datasource:
+    url: "jdbc:postgresql://ep-withered-hill-b8s25lwy-pooler.c-14.us-east-1.aws.neon.tech:5432/neondb?sslmode=require"
+    username: "neondb_owner"
+    password: "${NEON_DB_PASSWORD}"
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 15000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    default-schema: public
+    baseline-on-migrate: false
+
+  jackson:
+    time-zone: Asia/Tashkent
+    deserialization:
+      fail-on-unknown-properties: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: "727567703450-bgktefcbujemtctt17rad3329p3bqohe.apps.googleusercontent.com"
+            client-secret: "${GOOGLE_CLIENT_SECRET}"
+            scope: [openid, email, profile]
+
+jwt:
+  secret: "${JWT_SECRET}"
+  ttl-seconds: 900
+  refresh-ttl-seconds: 2592000
+
+brevo:
+  api-key: "${BREVO_API_KEY}"
+  sender-email: codebyzplatform@gmail.com
+  base-url: https://api.brevo.com/v3
+
+app:
+  catalog:
+    seed-demo: true
+  email:
+    # Public HTTPS base URL serving /api/site/logo, accessible to email clients.
+    public-base-url: "https://yt3.googleusercontent.com/RZw-lrL5nXgfgAZOiKLzaEuqNTI-PwrwgkJ12amxXoanCG8lz_GbvLTQbW2xXYkTNuwgC1yEEQ=s900-c-k-c0x00ffffff-no-rj"
+  order-telegram:
+    bot-token: "${ORDER_TELEGRAM_BOT_TOKEN}"
+  google:
+    frontend-callback: https://oson-market-frontend.vercel.app/auth/google/callback
+  default-admin:
+    username: admin
+    email: ziyatovzafar98@gmail.com
+    password-hash: "${DEFAULT_ADMIN_PASSWORD_HASH}"
+  auth:
+    code-ttl-seconds: 300
+    resend-seconds: 60
+    max-attempts: 5
+  profile:
+    avatar-max-bytes: 2097152
+    avatar-max-dimension: 2048
+  cors-origin: https://oson-market-frontend.vercel.app
+
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 10m
+      tracking-modes: cookie
+      cookie:
+        http-only: true
+        same-site: lax
+  error:
+    include-message: never
