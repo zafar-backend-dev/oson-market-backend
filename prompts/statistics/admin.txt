@@ -1,0 +1,19 @@
+OSON MARKET ADMIN STATISTIKASI
+
+/admin/statistics sahifasini yarating va admin menyusiga "Statistika" bandini qo'shing. Mavjud admin guard, API klienti, avtomatik token yangilash va UZ/RU tarjima tizimidan foydalaning.
+
+Dizayn. Oson Market uslubidagi iliq neytral fon, oq kartalar, yashil aksent, nozik chegaralar va o'qilishi oson yirik raqamlar. Yuqorida sarlavha, sana filtri va "Yangilash" tugmasi, pastda yetti bo'lim navigatsiyasi. Umumiy sahifada KPI kartalari, kunlik grafik, keyin valyuta bo'yicha jadval. Desktopda kartalar 3-4 ustun, planshetda 2 ustun, mobil ekranda mavjud kenglikka mos. Keng jadvallar mobil ekranda asosiy qiymatlari va ochiladigan tafsilotlari bor qatorlarga aylansin. Grafiklar tooltip, yorliq, rangdan tashqari belgi va qiymatlarning jadval ko'rinishiga ega bo'lsin.
+
+API. GET /api/admin/statistics yoki GET /api/admin/statistics/{section}. Bo'limlar OVERVIEW, ORDERS, CATALOG, CUSTOMERS, BRANCHES, ENGAGEMENT, OPERATIONS. Bearer token va Accept-Language: uz yoki ru yuboring. from/to formati YYYY-MM-DD, ikkala sana ham kiradi, Toshkent vaqti, standart 30 kun, maksimal 366 kun. 7/30/90 kun va maxsus oraliq tanlovlari bo'lsin. Reytinglarda limit 1-100, standart 20 va UI tanlovlari 20/50/100. Bo'lim va sana URL query orqali tiklansin. So'rov yuborishdan oldin oraliqni tekshiring.
+
+1. Umumiy. totals ni davr va joriy qiymatlarga ajrating. daily dagi orders, registrations, comments va payments_marked uchun alohida yoqiladigan grafik qatorlarini bering. order_totals_by_currency jadvalini ko'rsating.
+2. Buyurtmalar. by_status va by_fulfillment taqsimoti, status_changes jadvali, ratings yulduzlari, top_variants bo'yicha SKU, buyurtma soni, dona, chegirma va summa. fulfillment ichidagi xaridorlar, bekor qilish, baho va masofa. order_totals_by_currency ichidagi buyurtma, chegirma, yetkazish, to'langan deb belgilangan va yakunlangan summalarni alohida yorliqlang. Ularni bank tushumi deb nomlamang.
+3. Katalog. inventory, product_statuses, product_kinds, variant_statuses, category_statuses, brand_statuses, product_translation_coverage, category_translation_coverage, top_categories va top_brands. Rasmsiz, narxsiz, kategoriyasiz va brendsiz yozuvlarni katalog sifati blokida ko'rsating.
+4. Foydalanuvchilar. accounts, by_role, by_status, by_language, order_frequency va daily ichidagi registrations. Tasdiqlangan email, Google bog'langan akkaunt, to'liq profil va avatari bor profillarni ko'rsating.
+5. Filiallar. by_status va branch_orders, filial nomi faol tilda, buyurtma turi, valyuta, jami, bekor qilingan, yakunlangan, yetkazish summasi, masofa va baho. Filial biriktirilmagan qatorga mos yorliq bering.
+6. Faollik. comments, current_likes, top_liked_products, top_commented_products va daily ichidagi comments. Joriy layklar uchun sana filtri ta'sirini ko'rsatmang.
+7. Operatsiyalar. site, media_by_type, verification_codes, notifications, email_queue va telegram_queue. Media hajmini B/KB/MB/GB ko'rinishida, navbatlar uchun yuborilgan, kutilayotgan, to'xtatilgan va qayta urinishlarni alohida ko'rsating.
+
+Barcha qiymatlarni haqiqiy API javobidan oling. 0 ni 0, null o'rtacha qiymatni "Ma'lumot yo'q" sifatida ko'rsating. Turli valyutalarni qo'shmang. Davr qiymatlarini joriy holatdan aniq ajrating. UZ/RU tarjimalar, mahalliy sana/son/pul formati, yuklanish skeletoni, bo'sh holat, qayta urinish, avtomatik refresh va 403 ruxsat xabari bo'lsin. Eskirgan javoblar faol hisobotni almashtirmasin.
+
+Sinov. Barcha 7 bo'lim, sana filtri, limit, 0/null, valyuta, til almashtirish va admin ruxsatini tekshiring. 360 px, planshet va desktopda grafik, filtr va jadvallarni sinang.

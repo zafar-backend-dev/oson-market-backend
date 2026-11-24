@@ -1,0 +1,25 @@
+Oson Market admin paneliga "Foydalanuvchilar" bo'limini qo'shing. Ruscha yorliqlarni mavjud i18n tizimiga kiriting. Admin menyusiga band qo'shing va /admin/users yo'lini mavjud admin guard bilan himoyalang. Telefon, planshet va desktopda menyu va sahifa foydalanishga qulay bo'lsin.
+
+Mavjud API klienti, API base URL va sessiyani avtomatik yangilash mexanizmidan foydalaning. So'rovlarga Authorization: Bearer <accessToken> va Accept-Language: uz yoki ru yuboring.
+
+Ro'yxat
+GET /api/admin/users?q=ali&role=USER&status=ACTIVE&page=0&size=20
+q ixtiyoriy, maksimal 255 belgi. Ism, familiya, telefon, email va username bo'yicha serverda qidiradi. Qidiruv so'rovini taxminan 300 ms kechiktiring. Filtr yoki qidiruv o'zgarsa page=0 ga qayting. role USER yoki ADMIN, status ACTIVE yoki BLOCKED. "Barchasi" tanlanganda tegishli parametrni yubormang. page 0 dan boshlanadi. size 1-100 oralig'ida, standart 20.
+Javobda content ro'yxati va page obyekti (number, size, totalElements, totalPages) keladi. Sahifalashda shu qiymatlardan foydalaning. Ketma-ket qidiruvlarda eskirgan javob joriy natijani almashtirib yubormasin.
+
+Desktopda jadval, mobil ekranda ixcham kartalar ishlating. Ism va familiya, username, email, telefon, rol, holat va ro'yxatdan o'tgan sanani ko'rsating. Telefon va profil maydonlari bo'sh kelishi mumkin. Yuklanish, bo'sh natija va xato holatlari uchun tanlangan tilda mos UI bering.
+
+Batafsil
+GET /api/admin/users/{id}
+Ro'yxat elementi va batafsil javobi bir xil maydonlarni qaytaradi. id, username, email, role, status, firstName, lastName, phone, language, emailVerifiedAt, createdAt, updatedAt.
+Batafsil oynani ochganda serverdan yangi ma'lumot oling. Email tasdiqlanganligini emailVerifiedAt orqali ko'rsating. Sanalarni faol tilga mos formatlang.
+
+Holatni boshqarish
+PATCH /api/admin/users/{id}/status
+Content-Type: application/json
+Bloklash uchun {"status":"BLOCKED"}, qayta faollashtirish uchun {"status":"ACTIVE"} yuboring.
+Faqat role=USER bo'lgan akkauntlarda amallarni ko'rsating. ACTIVE uchun "Bloklash", BLOCKED uchun "Faollashtirish" chiqsin. Amalni tasdiqlash oynasida akkauntni aniq ko'rsating. Bloklash mavjud sessiyalarni tugatishini yozing. So'rov vaqtida tugmani bloklang. Muvaffaqiyatdan keyin batafsil oynani API javobi bilan yangilang va joriy filtrdagi ro'yxatni qayta yuklang.
+
+401 ni mavjud refresh orqali ishlang, 403 da ruxsat xatosini va 404 da akkaunt topilmaganini ko'rsating. Xatoni API xabari yoki tanlangan tildagi mos matn bilan chiqaring.
+
+Tekshiruv. Admin ro'yxatni ochsin, qidiruv, filtr va sahifalashni sinasin. Oddiy akkauntni bloklab, holat o'zgargani va akkauntning eski sessiyasi ishlamasligini tekshirsin. Keyin qayta faollashtirsin. ADMIN akkauntida holat amali ko'rinmasin. Oddiy foydalanuvchi admin sahifasiga kira olmasin.

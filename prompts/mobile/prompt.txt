@@ -1,0 +1,26 @@
+OSON MARKET — CAPACITOR MOBIL ILOVASIGA HAVOLALAR VA GOOGLE KIRISH
+
+Mavjud React + TypeScript + Vite, Capacitor va Spring Boot loyihalarida ikkita oqimni ishlating. Birinchisi ulashilgan mahsulot havolasini ilovada ochadi. Ikkinchisi ilovadan boshlangan Google kirishini telefon brauzerida yakunlab, foydalanuvchini ilovaga qaytaradi. Android appId va applicationId uz.osonmarket24.app bo'lib qolsin. Ommaviy domen osonmarket24.uz. API uchun loyihada sozlangan HTTPS backend manzilidan foydalaning.
+
+MAHSULOT HAVOLALARI
+
+- “Ulashish” amali ommaviy https://osonmarket24.uz/products/{slug} manzilini nusxalasin yoki telefon ulashish oynasiga bersin. Slugni amaldagi React Router marshruti va mahsulot ma'lumotidan oling.
+- AndroidManifest.xml dagi MainActivity ichiga android:autoVerify="true" bilan Android App Links intent-filter qo'shing. VIEW, DEFAULT, BROWSABLE, HTTPS va osonmarket24.uz domeni ishlatilsin. Faqat /products/ ostidagi marshrutlar hamda quyida ko'rsatilgan mobil Google callback ilova tomonidan qabul qilinsin. Mavjud intent-filterlarni saqlang.
+- Frontendning public/.well-known/assetlinks.json faylida delegate_permission/common.handle_all_urls munosabati, android_app namespace, amaldagi package_name va o'rnatilgan buildni imzolagan sertifikatning SHA-256 fingerprinti bo'lsin. Sinov buildi uchun Gradle signingReport dagi debug fingerprintdan, Google Play tarqatmasi uchun Play App Signing sertifikati fingerprintidan foydalaning. Qiymatlarni taxmin qilmang. Fayl https://osonmarket24.uz/.well-known/assetlinks.json manzilidan 200 va JSON bilan, redirectsiz ochilsin.
+- React Router ichida @capacitor/app orqali appUrlOpen va getLaunchUrl() ni ulang. Qabul qilingan URL ning HTTPS protokoli, aniq domeni va ruxsat etilgan pathini tekshiring. Mahsulot URL'i uchun ilova ichidagi mos route'ga o'ting. Sovuq start va allaqachon ochiq ilovada ishlasin. Listener komponent yopilganda tozalansin va bitta havola ikki marta qayta ishlanmasin.
+- Ilova o'rnatilmagan qurilmada ulashilgan havola saytda mahsulotni ochsin. Sayt hostingida /products/{slug} manziliga bevosita kirish va reload uchun SPA fallback ishlasin. .well-known faylini SPA fallback bilan almashtirmang.
+
+GOOGLE ORQALI KIRISH
+
+- Saytning mavjud Google login oqimini saqlang. Capacitor ilovasidagi Google tugmasi uchun alohida mobil boshlash oqimi qo'shing. Ilovada har urinish uchun tasodifiy PKCE verifier yarating va uning S256 challenge qiymatini backendga bering. Verifierni ilova ichida vaqtincha saqlang, brauzer URL'iga yubormang.
+- Google autentifikatsiyasini tizim brauzeri yoki platformaning xavfsiz brauzer oynasida oching. Google Console'dagi redirect URI Spring Boot'ning mavjud Google callback endpointi bo'lib qolsin. Backend OAuth state va mobil urinishni bog'lasin. Mobil callback manzili oldindan belgilangan https://osonmarket24.uz/auth/mobile/google/callback bo'lsin.
+- Google tasdiqlagach, backend mobil callback uchun qisqa muddatli, bir martalik login kodi chiqarsin. URL orqali access token yoki refresh token jo'natmang. Ilova callbackdagi kod va o'zida saqlangan verifierni mobil exchange API'ga HTTPS POST bilan yuborsin. Backend kodni muddati, PKCE challenge va urinish bilan tekshirsin, so'ng bir marta atomar ishlatsin. Mobil exchange tizim brauzeridagi JSESSIONID cookie'siga bog'liq bo'lmasin.
+- Ilova tokenlarni API javobidan olib, mobil sessiyani ishga tushirsin. Mobil refresh tokenni OS himoyalangan saqlash vositasida saqlang. Mavjud refresh/logout qoidalari mobil sessiyada ham ishlasin. Bitta kodga takroriy exchange yubormang, bekor qilingan yoki eskirgan urinishdan keyin yangi Google login boshlash imkonini bering. Xatolar o'zbekcha va ruscha chiqsin.
+- Kirishdan so'ng mavjud profil oqimi ishlasin. Ism, familiya yoki telefon yetishmasa profilga, ma'lumotlar to'liq bo'lsa katalogga o'ting. Xaridor himoyalangan amaldan kelgan bo'lsa, profil to'liq bo'lgach amaldagi ichki qaytish yo'lidan foydalaning.
+
+QABUL SINOVI
+
+1. Android'da Telegram yoki SMS ichidan mahsulot havolasini bosing. Ilova yopiq va ochiq holatlarda aynan shu mahsulot ochilsin. Ilova o'rnatilmagan telefonda sayt ochilsin.
+2. Android ilovasidan Google bilan kiring. Brauzer loginni ko'rsatsin, yakunda ilova ochilib sessiya saqlansin. Google oynasidan qaytish, bekor qilish va qayta urinishni tekshiring.
+3. Saytdan Google bilan kirganda mavjud veb callback ishlashini tekshiring. Qayta ishlatilgan kod va noto'g'ri verifier rad etilsin.
+4. Frontend build, npx cap sync android, Android Studio sinovi va ommaviy assetlinks.json tekshiruvini yakunlang. iOS keyin qo'shilsa, shu marshrutlar uchun Universal Links va apple-app-site-association sozlang.

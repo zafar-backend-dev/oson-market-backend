@@ -1,0 +1,11 @@
+Ommaviy “Biz haqimizda” sahifasi
+
+Katalogning umumiy navigatsiyasi va footeriga “Biz haqimizda” / “О нас” havolasini qo‘shing. Mobil menyuda ham ko‘rinsin. Havola /about sahifasini ochsin. Sahifa mehmonlar va tizimga kirgan xaridorlar uchun bir xil ishlasin. Manzilni to‘g‘ridan-to‘g‘ri ochganda yoki sahifani qayta yuklaganda login oynasi chiqmasin.
+
+Mavjud API base URL orqali GET /api/site/about chaqiring. Ushbu so‘rov uchun Bearer token talab qilinmaydi. Javobdagi uz yoki ru obyektidan faol tilga mos title va description ni oling. Til almashtirilganda matn va interfeys yorliqlari darhol yangilansin. Tavsifni oddiy matn sifatida, qator tashlashlarini saqlab chiqaring. Uz va ru null bo‘lsa, tanlangan tilda “Ma’lumot hozircha e’lon qilinmagan” / “Информация пока не опубликована” holatini ko‘rsating. Yuklashda skeleton, xatoda qayta urinish tugmasi chiqsin.
+
+Oson Market katalogining ranglari, logosi, shriftlari va umumiy header/footeridan foydalaning. Oq yoki iliq neytral fonda yashil aksent, katta aniq sarlavha va o‘qishga qulay kenglikdagi matn blokini ishlating. Ijtimoiy havolalarni platformaning ikonasi va nomi bilan ixcham tugmalar ko‘rinishida matndan keyin joylashtiring. Faqat API qaytargan havolalarni chiqaring. Mobil ekranda bo‘limlar bir ustunda bo‘lsin, havolalar keyingi qatorga o‘tsin va gorizontal scroll paydo bo‘lmasin. Klaviatura fokusi aniq ko‘rinsin.
+
+Sinovda /about ni mehmon sifatida to‘g‘ridan-to‘g‘ri oching, keyin xaridor akkaunti bilan menyudan oching. Ikki tilda sarlavha, tavsif va saqlangan havolalarni tekshiring. 360 px, planshet va desktop o‘lchamlarida sahifani sinang.
+
+Ommaviy “Biz haqimizda” / “О нас” sahifasi autentifikatsiyasiz GET /api/site/about orqali matn va havolalarni olsin. Tanlangan tildagi sarlavha va tavsifni, faqat URL saqlangan platformalarning ikonasi va nomini ko‘rsating. Havolalar yangi tabda rel="noopener noreferrer" bilan ochilsin. Havola bo‘lmasa, ijtimoiy tarmoqlar bo‘limini yashiring.

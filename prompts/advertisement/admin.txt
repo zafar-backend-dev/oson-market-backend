@@ -1,0 +1,65 @@
+OSON MARKET ADMIN PANELI — REKLAMALAR
+
+/admin/advertisements sahifasini oching. Admin menyusiga “Reklamalar” / “Реклама” bandini qo‘shing. Mavjud admin guard, API base URL, Bearer token, avtomatik refresh va UZ/RU tarjimalardan foydalaning. Har so‘rovda faol tilni Accept-Language sarlavhasida yuboring.
+
+RO‘YXAT VA DIZAYN
+
+Oson Market uslubida oq kartalar, yashil asosiy tugma va o‘qilishi oson holat belgilari ishlating. Yuqorida sarlavha va “Reklama yaratish”, pastda nom bo‘yicha qidiruv va kanal hamda holat filtrlari bo‘lsin.
+GET /api/admin/advertisements?q=...&channel=WEB&status=DRAFT&page=0&size=20
+q ixtiyoriy, maksimal 160 belgi. channel WEB yoki APP, status DRAFT, PUBLISHED, PAUSED yoki ARCHIVED. “Barchasi” uchun mos parametrni yubormang. Qidiruv va filtr o‘zgarganda page=0 ga qayting. Javob content va page obyektlaridan iborat. size 1–100.
+
+Desktopda ixcham jadval, mobil va planshetda moslashuvchan kartalar ishlating. Faol tildagi sarlavha, rasm yoki video turi, sayt va ilova yorliqlari, ko‘rsatish vaqti, yangilangan vaqt va amallarni ko‘rsating. API ro‘yxatidagi har element va batafsil javob { advertisement, visibility } shaklida. advertisement.status tahrirlash holatini, visibility esa DRAFT, SCHEDULED, LIVE, ENDED, PAUSED yoki ARCHIVED ko‘rsatish holatini bildiradi. “Rejalashtirilgan” va “Tugagan” belgilarini visibility dan oling. Sahifada skeleton, bo‘sh holat va qayta urinish tugmasi bo‘lsin.
+
+YARATISH VA TAHRIRLASH
+
+GET /api/admin/advertisements/{id} orqali to‘liq ma’lumotni yuklang. Formada ikki til uchun sarlavha (majburiy, 160 belgigacha) va tavsif (ixtiyoriy, 3000 belgigacha), WEB va APP kanallari (kamida bittasi), ixtiyoriy targetUrl, startsAt, endsAt hamda majburiy manfiy bo‘lmagan butun sortOrder bo‘lsin. targetUrl sayt ichidagi /products/... kabi yo‘l yoki to‘liq HTTPS havola bo‘lsin. Sanalarni ISO 8601 UTC vaqtida yuboring va tahrirlashda vaqt mintaqasini foydalanuvchiga aniq ko‘rsating. Tugash boshlanishdan keyin bo‘lishi kerak.
+
+PNG yoki JPEG rasm (2 MB va 2048×2048 px gacha) yoki MP4 video (25 MB gacha) tanlashga ruxsat bering. Galereyadan/fayl tanlagichdan yuklang, forma ichida rasm yoki boshqaruvli video prevyusi bo‘lsin. Media ID maydonini chiqarmang. Mahalliy prevyu va backenddan yuklangan fayl uchun yaratilgan object URL’larni foydalanish tugagach tozalang.
+
+POST /api/admin/advertisements joriy reklamani DRAFT holatida yaratadi. PUT /api/admin/advertisements/{id}?expectedRevision=... tahrirlaydi. Ikkalasida ham FormData ishlating. advertisement nomli qism application/json Blob bo‘lsin, file nomli qismga tanlangan File yuborilsin. Brauzer multipart boundary’ni o‘zi belgilasin. Fayl tanlanmasa file qismini yubormang. Yangi qoralama mediasiz saqlanishi mumkin, tahrirda mavjud media saqlanadi.
+
+advertisement qismining namunasi
+{
+  "uz": {"title": "Hafta aksiyasi", "description": "Tanlangan mahsulotlarda chegirma"},
+  "ru": {"title": "Акция недели", "description": "Скидки на выбранные товары"},
+  "channels": ["WEB", "APP"],
+  "targetUrl": "/products/choyan-qozon",
+  "startsAt": null,
+  "endsAt": null,
+  "sortOrder": 0
+}
+
+HOLAT VA TARIX
+
+PATCH /api/admin/advertisements/{id}/status ga JSON yuboring.
+{"expectedRevision": 1, "status": "PUBLISHED", "reason": null}
+Revisiyani joriy advertisement.revision dan oling. DRAFT → PUBLISHED yoki ARCHIVED. PUBLISHED → PAUSED yoki ARCHIVED. PAUSED → PUBLISHED yoki ARCHIVED. ARCHIVED reklama faqat ko‘rish uchun. Nashr qilishda media va tugash vaqti validatsiyasini ko‘rsating. Arxivlashda tasdiqlash oynasi va ixtiyoriy izoh (1000 belgigacha) bo‘lsin. Amaldan keyin javobdagi yangi revision va holatni ishlating. 409 bo‘lsa server xabarini chiqaring va formadagi o‘zgarishlarni saqlagan holda yangi versiyani yuklash imkonini bering.
+
+GET /api/admin/advertisements/{id}/history?page=0&size=20 orqali tarixni sahifalang. Har yozuvda revision, action, actorId, changedAt, reason va snapshot keladi. Vaqt, amal, bajaruvchi va izohni ko‘rsating. Kartani ochganda o‘sha versiyaning ikki tildagi matni, kanallari, sanalari va mediasini ko‘rsating. Joriy yoki eski media uchun snapshot.media.url ni mavjud API hosti bilan ishlating. Bu URL admin token talab qiladi. Prevyu uchun avtorizatsiyalangan so‘rov bilan Blob oling va object URL orqali rasm yoki videoda ko‘rsating. Tokenni URL ga qo‘shmang.
+
+Saqlash va holat o‘zgartirish paytida takroriy bosishni bloklang. 400, 403, 404, 409 va 413 javoblarida maydonga yoki amal yoniga tushunarli UZ/RU xabar chiqaring. Token yangilanishida formadagi qiymatlar va tanlangan fayl saqlansin. Ushbu API larda WEB va APP ko‘rsatish kanallari sifatida saqlanadi. Push jo‘natish amali uchun alohida API kerak.
+
+QABUL SINOVI
+
+Mobil, planshet va desktopda ikki tilda sinang. Rasmli qoralama yarating, rasmni MP4 bilan almashtiring, reklama nashrini rejalashtiring, pauzaga qo‘ying va arxivlang. Tarixda avvalgi matn va rasm, joriy yozuvda video ochilishini tekshiring. Eskirgan revision bilan saqlash rad etilishini va oddiy foydalanuvchi admin sahifasiga kira olmasligini tekshiring.
+
+YUBORISH VA BILDIRISHNOMALAR
+
+Admin ro'yxati va tafsilotiga "Yuborish" / "Отправить" amalini qo'shing. Amalni bosganda joriy reklamaning WEB va/yoki APP kanallari va boshlanish vaqtini ko'rsatadigan tasdiqlash oynasi chiqsin. Nashr qilish mavjud status amali. Reklama bildirishnomasini chiqarish uchun POST /api/admin/advertisements/{id}/send ni ishlating.
+
+Content-Type: application/json
+{"expectedRevision": 3}
+
+Qiymatni advertisement.revision dan oling. Amal reklamaning joriy versiyasini saqlaydi va ko'rsatish uchun nashr qiladi. Javob id, advertisementId, revision, channels, actorId, sentAt va availableAt maydonlarini qaytaradi. availableAt kelajakda bo'lsa "Rejalashtirildi", aks holda "Yuborildi" holatini ko'rsating. Amal muvaffaqiyatli bo'lgach reklama tafsilotini qayta yuklang. Takroriy bosishni bloklang va tasdiq xabarini faqat API muvaffaqiyatli javobidan keyin chiqaring. Reklama muddati tugagan bo'lsa, tugash sanasini yangilash kerakligini tushuntiring. GET /api/admin/advertisements/{id}/dispatches?page=0&size=20 orqali yuborish tarixini ko'rsating.
+
+Sayt va mobil ilova bosh sahifasida GET /api/site/advertisements?channel=WEB&page=0&size=20 dan faol reklamalarni oling. Capacitor mobil ilovasida channel=APP ishlating. Bu endpoint mehmonlar uchun ham ochiq. API qaytargan mediaUrl ni backend manziliga nisbatan yeching. contentType video/mp4 bo'lsa controls va playsInline bilan video, qolganida rasm chiqaring. Faol tildagi uz yoki ru matnini ishlating va bosilganda targetUrl ni oching. Ichki yo'lni router orqali oching. Reklama bo'lmasa blokni yashiring.
+
+Sayt va ilovadagi mavjud "Bildirishnomalar" sahifasiga reklama xabarlarini ham qo'shing. Buyurtma xabarlari mavjud API orqali ishlasin. Reklamalar uchun quyidagi so'rovlarni Bearer token bilan ishlating. Saytda WEB, ilovada APP yuboring.
+
+GET /api/advertisement-notifications?channel=WEB&page=0&size=20
+GET /api/advertisement-notifications/unread-count?channel=WEB
+PATCH /api/advertisement-notifications/{id}/read?channel=WEB
+
+Ro'yxat javobi content va page obyektlariga ega. Har bir element id (yuborish IDsi), advertisementId, uz, ru, targetUrl, contentType, mediaUrl, createdAt va readAt ni qaytaradi. Ekranda "Buyurtmalar" va "Reklamalar" filtrlari yoki alohida tablardan foydalaning. Qo'ng'iroq nishonida mavjud buyurtma unread soni bilan reklama unread count qiymatini qo'shing. Reklama ochilganda read endpointiga aynan xabarning id qiymatini yuboring. Tarixiy media URL uchun avtorizatsiyalangan so'rov orqali Blob oling. Ochiq sahifada xabarlar kelishini ko'rsatish uchun fokus qaytganda va navigatsiyada qayta yuklang, header ochiq va tab faol bo'lganda 30 soniyada bir marta yangilang.
+
+Qabul sinovi. WEB reklamasini yuboring va sayt katalogi, qo'ng'iroq nishoni va Bildirishnomalar sahifasida ko'ring. APP reklama yuborib, Capacitor ilovasida tekshiring. APP reklama WEB ro'yxatida chiqmasin. O'qilgan xabar uchun badge kamayishi va sahifa qayta ochilganda readAt saqlanishini tekshiring. Arxivlangan reklama bannerda chiqmasin, yuborilgan bildirishnoma tarixda qolsin. Tizimning telefon ekraniga push yuborish FCM/APNs integratsiyasi bilan alohida ishlaydi.

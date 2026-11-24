@@ -1,0 +1,36 @@
+Oson Market admin paneliga “Biz haqimizda” / “О нас” bo‘limini qo‘shing.
+
+Admin menyusida yangi band oching. Sahifa uchun /admin/about yo‘lidan foydalaning va mavjud admin route guard, sessiya yangilash mexanizmi hamda API klientini qayta ishlating. API so‘rovlariga Authorization: Bearer <accessToken> va tanlangan tilga mos Accept-Language: uz yoki ru yuboring.
+
+Sahifa ochilganda GET /api/admin/site/about chaqiring. Javobda uz va ru obyektlari (har birida title va description) hamda updatedAt (ISO 8601) keladi. Bo‘lim hali yaratilmagan bo‘lsa, uz, ru va updatedAt qiymatlari null bo‘ladi. Bunday holatda bo‘sh forma oching. Yuklash xatosida qayta urinish tugmasini ko‘rsating.
+
+Formada “O‘zbekcha” va “Русский” bo‘limlarini bering. Har ikkalasida sarlavha va ko‘p qatorli tavsif bo‘lsin. Bo‘sh yoki faqat probeldan iborat qiymatlarni rad eting. Sarlavha uchun 200, tavsif uchun 10 000 belgigacha ruxsat bering. Xatoni tegishli til va maydon yonida ko‘rsating. Matnni oddiy matn sifatida ko‘rsating va tavsifdagi qator tashlashlarni saqlang.
+
+Saqlash uchun PUT /api/admin/site/about so‘rovini Content-Type: application/json bilan yuboring. Birinchi yaratish va tahrirlash shu endpoint orqali bajariladi.
+
+{
+  "uz": {
+    "title": "Biz haqimizda",
+    "description": "Oson Market haqida o‘zbekcha matn."
+  },
+  "ru": {
+    "title": "О нас",
+    "description": "Текст об Oson Market на русском языке."
+  }
+}
+
+So‘rov davomida takroriy bosishni bloklang. Muvaffaqiyatli javobdan formani va oxirgi yangilangan vaqtni yangilang, so‘ng tanlangan tilda tasdiq xabarini ko‘rsating. Xatolik bo‘lsa, formadagi qiymatlarni saqlang. 401 javobini mavjud sessiya yangilash mexanizmi orqali ishlang. 403 javobida tanlangan tilda ruxsat xabarini ko‘rsating.
+
+Oson Market admin panelining mavjud dizaynidan foydalaning. Desktopda ikki til formasini yonma-yon, telefon va tor ekranlarda ketma-ket joylashtiring. Barcha yorliqlar, holatlar va xabarlar o‘zbekcha va ruscha bo‘lsin.
+
+Sinovda bo‘sh formadan ikki tilda ma’lumot saqlang, sahifani qayta yuklang va qiymatlar qaytganini tekshiring. Keyin bitta til matnini tahrirlang va ikkinchi til qiymatlari saqlanganini tekshiring. Admin huquqi yo‘q akkauntda sahifa va API kirishi cheklanganini tekshiring.
+
+Ijtimoiy tarmoqlar
+
+Admin formasiga “Ijtimoiy tarmoqlar” / “Социальные сети” bo‘limini qo‘shing. Platformalar TELEGRAM, INSTAGRAM, FACEBOOK, YOUTUBE, TIKTOK, X, LINKEDIN va WHATSAPP. Har bir platforma uchun ixtiyoriy HTTPS havola maydoni bo‘lsin. Havola 2048 belgidan oshmasin. Maydon yonida havolani olib tashlash amali bo‘lsin.
+
+GET /api/admin/site/about javobidagi socialLinks obyektidan maydonlarni to‘ldiring. PUT so‘rovida uz va ru bilan birga to‘ldirilgan havolalarni socialLinks obyektiga qo‘shing. Misol: "socialLinks": {"TELEGRAM":"https://t.me/example"}. Bo‘sh maydonlarni obyektga qo‘shmang. Bitta havolani olib tashlash uchun uni obyektga kiritmay, qolgan havolalarni yuboring. Barchasini olib tashlash uchun socialLinks: {} yuboring. socialLinks maydoni umuman yuborilmasa, backend mavjud havolalarni saqlab qoladi.
+
+
+
+Sinovda admin havola qo‘shsin, sahifani qayta yuklasin va havola saqlanganini tekshirsin. Mehmon sifatida sahifani ochib havolani sinang. Keyin admin havolani olib tashlasin va ommaviy sahifada u yo‘qolganini tekshiring.
