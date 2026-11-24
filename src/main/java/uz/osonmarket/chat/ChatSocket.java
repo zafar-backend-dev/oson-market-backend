@@ -140,10 +140,14 @@ class ChatSocket {
             switch (type) {
                 case "SEND_TEXT" -> {
                     var saved = chat.send(actor, userId, UUID.fromString(requestId),
-                            input.path("text").isTextual() ? input.path("text").textValue() : null, null);
+                            input.path("text").isTextual() ? input.path("text").textValue() : null, null,
+                            input.hasNonNull("replyToId") ? input.path("replyToId").asLong() : null);
                     stopActivity(session);
                     send(session, Map.of("type", "ACK", "requestId", requestId, "data", saved));
                 }
+                case "DELETE_MESSAGE" -> chat.delete(actor, userId, input.path("messageId").asLong());
+                case "REACT" -> chat.react(actor, userId, input.path("messageId").asLong(),
+                        input.hasNonNull("emoji") ? input.path("emoji").asText() : null);
                 case "ACTIVITY" -> updateActivity(session, actor, userId, input.path("activity").asText());
                 case "MARK_READ" -> {
                     var receipt = chat.read(actor, userId, input.path("throughId").asLong());

@@ -15,12 +15,14 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.*;
 import java.util.*;
+import java.util.function.Function;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
+import uz.osonmarket.chat.ChatPushEvent;
 
 @Component
 class OrderFirebasePush {
@@ -47,43 +49,57 @@ class OrderFirebasePush {
 
     @TransactionalEventListener
     public void publish(OrderOperationsService.OrderStatusEvent event) {
+        enqueue(event.owner(), "oson_order_updates", event.notificationId().toString(),
+                Map.of("orderId", event.orderId().toString(),
+                        "notificationId", event.notificationId().toString(), "status", event.status().name()),
+                language -> "ru".equals(language) ? "Статус вашего заказа обновился."
+                        : "Buyurtmangiz holati yangilandi.");
+    }
+
+    @TransactionalEventListener
+    public void publish(ChatPushEvent event) {
+        String id = Long.toString(event.messageId());
+        enqueue(event.recipientId(), "oson_chat_messages", "chat-" + id,
+                Map.of("type", "CHAT_MESSAGE", "messageId", id),
+                language -> "ru".equals(language) ? "Новое сообщение от администратора."
+                        : "Admin sizga yangi xabar yubordi.");
+    }
+
+    private void enqueue(UUID owner, String channel, String tag, Map<String, String> data,
+                         Function<String, String> body) {
         if (account == null) return;
         try {
-            executor.execute(() -> deliver(event));
+            executor.execute(() -> deliver(owner, channel, tag, data, body));
         } catch (RuntimeException ex) {
             LOG.warn("Push delivery could not be queued ({})", ex.getClass().getSimpleName());
         }
     }
 
-    private void deliver(OrderOperationsService.OrderStatusEvent event) {
+    private void deliver(UUID owner, String channel, String tag, Map<String, String> data,
+                         Function<String, String> body) {
         try {
-            for (var device : devices.find(event.owner())) {
+            for (var device : devices.find(owner)) {
                 try {
-                    send(device, event);
+                    send(device, channel, tag, data, body.apply(device.language));
                 } catch (IOException | JOSEException ex) {
-                    LOG.warn("Order push delivery failed ({})", ex.getClass().getSimpleName());
+                    LOG.warn("Firebase push delivery failed for {} ({})", channel, ex.getClass().getSimpleName());
                 }
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException ex) {
-            LOG.warn("Order push processing failed ({})", ex.getClass().getSimpleName());
+            LOG.warn("Firebase push processing failed for {} ({})", channel, ex.getClass().getSimpleName());
         }
     }
 
-    private void send(OrderPushDevice device, OrderOperationsService.OrderStatusEvent event)
+    private void send(OrderPushDevice device, String channel, String tag, Map<String, String> data, String body)
             throws IOException, InterruptedException, JOSEException {
-        String body = "ru".equals(device.language)
-                ? "\u0421\u0442\u0430\u0442\u0443\u0441 \u0432\u0430\u0448\u0435\u0433\u043e \u0437\u0430\u043a\u0430\u0437\u0430 \u043e\u0431\u043d\u043e\u0432\u0438\u043b\u0441\u044f."
-                : "Buyurtmangiz holati yangilandi.";
         var payload = Map.of("message", Map.of(
                 "token", device.token,
                 "notification", Map.of("title", "Oson Market", "body", body),
-                "data", Map.of("orderId", event.orderId().toString(),
-                        "notificationId", event.notificationId().toString(), "status", event.status().name()),
+                "data", data,
                 "android", Map.of("priority", "HIGH", "notification", Map.of(
-                        "channel_id", "oson_order_updates", "sound", "default",
-                        "tag", event.notificationId().toString()))));
+                        "channel_id", channel, "sound", "default", "tag", tag))));
         var request = HttpRequest.newBuilder(account.sendUrl()).timeout(Duration.ofSeconds(10))
                 .header("Authorization", "Bearer " + token())
                 .header("Content-Type", "application/json")
@@ -98,7 +114,7 @@ class OrderFirebasePush {
                 }
             }
         }
-        LOG.warn("Firebase rejected order push with HTTP {}", response.statusCode());
+        LOG.warn("Firebase rejected push for {} with HTTP {}", channel, response.statusCode());
     }
 
     private synchronized String token() throws IOException, InterruptedException, JOSEException {

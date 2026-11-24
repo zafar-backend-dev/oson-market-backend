@@ -64,10 +64,11 @@ class ChatController {
     ChatService.Message upload(@AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "Origin", required = false) String origin,
             @RequestParam(required = false) UUID userId, @RequestParam UUID requestId,
-            @RequestParam String kind, @RequestParam MultipartFile file) throws IOException {
+            @RequestParam String kind, @RequestParam(required = false) Long replyToId,
+            @RequestParam MultipartFile file) throws IOException {
         var actor = actor(jwt, origin);
         chat.owner(actor, userId);
-        return chat.send(actor, userId, requestId, null, ChatMedia.read(file, kind));
+        return chat.send(actor, userId, requestId, null, ChatMedia.read(file, kind), replyToId);
     }
 
     @GetMapping("/attachments/{messageId}")

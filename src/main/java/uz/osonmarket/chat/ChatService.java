@@ -2,7 +2,7 @@ package uz.osonmarket.chat;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -18,8 +18,9 @@ import uz.osonmarket.auth.persistence.UserRepository;
 class ChatService implements ApplicationRunner {
     private static final String COLUMNS = """
             id, owner_id, sender_id, sender_admin, text, media_type, media_name,
-            created_at, read_at
+            created_at, read_at, reply_to_id, deleted_at, user_reaction, admin_reaction, revision
             """;
+    private static final Set<String> REACTIONS = Set.of("👍", "❤️", "😂", "😮", "😢", "🙏");
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final ApplicationEventPublisher events;
@@ -42,6 +43,14 @@ class ChatService implements ApplicationRunner {
                     UNIQUE (owner_id, sender_id, request_id),
                     CHECK ((text IS NOT NULL AND media IS NULL) OR (text IS NULL AND media IS NOT NULL))
                 )
+                """);
+        jdbc.execute("""
+                ALTER TABLE mobile_chat_messages
+                    ADD COLUMN IF NOT EXISTS reply_to_id bigint,
+                    ADD COLUMN IF NOT EXISTS deleted_at timestamptz,
+                    ADD COLUMN IF NOT EXISTS user_reaction varchar(16),
+                    ADD COLUMN IF NOT EXISTS admin_reaction varchar(16),
+                    ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0
                 """);
         jdbc.execute("""
                 CREATE INDEX IF NOT EXISTS mobile_chat_owner_history
@@ -79,7 +88,7 @@ class ChatService implements ApplicationRunner {
                 SELECT latest.owner_id, u.username, latest.last_id,
                        (SELECT count(*) FROM mobile_chat_messages unread
                         WHERE unread.owner_id = latest.owner_id AND NOT unread.sender_admin
-                          AND unread.read_at IS NULL) AS unread
+                          AND unread.read_at IS NULL AND unread.deleted_at IS NULL) AS unread
                 FROM (SELECT DISTINCT ON (owner_id) owner_id, id AS last_id
                       FROM mobile_chat_messages ORDER BY owner_id, id DESC) latest
                 LEFT JOIN users u ON u.id = latest.owner_id
@@ -96,7 +105,7 @@ class ChatService implements ApplicationRunner {
     }
 
     @Transactional
-    public Message send(Actor actor, UUID requested, UUID requestId, String text, ChatMedia media) {
+    public Message send(Actor actor, UUID requested, UUID requestId, String text, ChatMedia media, Long replyTo) {
         UUID owner = owner(actor, requested);
         if (requestId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestId required");
         String body = text == null ? null : text.strip();
@@ -104,14 +113,19 @@ class ChatService implements ApplicationRunner {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Text must contain 1 to 4000 characters");
         }
         if (users.findForUpdate(owner).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (replyTo != null && !Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM mobile_chat_messages WHERE owner_id = ? AND id = ?)
+                """, Boolean.class, owner, replyTo))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reply target not found");
+        }
         var saved = jdbc.query("""
                 INSERT INTO mobile_chat_messages (owner_id, sender_id, sender_admin, request_id, text,
-                    media_type, media_name, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    media_type, media_name, media, reply_to_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (owner_id, sender_id, request_id) DO NOTHING
                 RETURNING
                 """ + COLUMNS, ChatService::message, owner, actor.id(), actor.admin(), requestId,
                 media == null ? body : null, media == null ? null : media.type(),
-                media == null ? null : media.name(), media == null ? null : media.bytes());
+                media == null ? null : media.name(), media == null ? null : media.bytes(), replyTo);
         if (saved.isEmpty()) {
             return jdbc.queryForObject("SELECT " + COLUMNS + """
                     FROM mobile_chat_messages WHERE owner_id = ? AND sender_id = ? AND request_id = ?
@@ -119,6 +133,38 @@ class ChatService implements ApplicationRunner {
         }
         var message = saved.get(0);
         events.publishEvent(new Changed(owner, "MESSAGE", message));
+        if (actor.admin()) events.publishEvent(new ChatPushEvent(owner, message.id()));
+        return message;
+    }
+
+    @Transactional
+    public Message delete(Actor actor, UUID requested, long messageId) {
+        UUID owner = owner(actor, requested);
+        return changed(owner, jdbc.query("""
+                UPDATE mobile_chat_messages
+                SET deleted_at = now(), text = '', media = NULL, media_type = NULL, media_name = NULL,
+                    user_reaction = NULL, admin_reaction = NULL, revision = revision + 1
+                WHERE owner_id = ? AND id = ? AND sender_id = ? AND deleted_at IS NULL RETURNING
+                """ + COLUMNS, ChatService::message, owner, messageId, actor.id()));
+    }
+
+    @Transactional
+    public Message react(Actor actor, UUID requested, long messageId, String emoji) {
+        UUID owner = owner(actor, requested);
+        if (emoji != null && !REACTIONS.contains(emoji)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported reaction");
+        }
+        String column = actor.admin() ? "admin_reaction" : "user_reaction";
+        return changed(owner, jdbc.query("""
+                UPDATE mobile_chat_messages SET %s = ?, revision = revision + 1
+                WHERE owner_id = ? AND id = ? AND deleted_at IS NULL RETURNING
+                """.formatted(column) + COLUMNS, ChatService::message, emoji, owner, messageId));
+    }
+
+    private Message changed(UUID owner, List<Message> messages) {
+        if (messages.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        Message message = messages.get(0);
+        events.publishEvent(new Changed(owner, "MESSAGE_UPDATED", message));
         return message;
     }
 
@@ -142,11 +188,12 @@ class ChatService implements ApplicationRunner {
     long unread(Actor actor, UUID requested) {
         if (actor.admin() && requested == null) {
             return jdbc.queryForObject("""
-                    SELECT count(*) FROM mobile_chat_messages WHERE NOT sender_admin AND read_at IS NULL
+                    SELECT count(*) FROM mobile_chat_messages WHERE NOT sender_admin AND read_at IS NULL AND deleted_at IS NULL
                     """, Long.class);
         }
         return jdbc.queryForObject("""
-                SELECT count(*) FROM mobile_chat_messages WHERE owner_id = ? AND sender_admin <> ? AND read_at IS NULL
+                SELECT count(*) FROM mobile_chat_messages WHERE owner_id = ? AND sender_admin <> ?
+                    AND read_at IS NULL AND deleted_at IS NULL
                 """, Long.class, owner(actor, requested), actor.admin());
     }
 
@@ -166,12 +213,15 @@ class ChatService implements ApplicationRunner {
                 rs.getObject("sender_id", UUID.class), rs.getBoolean("sender_admin"),
                 type == null ? "TEXT" : type.startsWith("image/") ? "IMAGE" : "VOICE",
                 rs.getString("text"), type, rs.getString("media_name"),
-                rs.getTimestamp("created_at").toInstant(), read == null ? null : read.toInstant());
+                rs.getTimestamp("created_at").toInstant(), read == null ? null : read.toInstant(),
+                rs.getObject("reply_to_id", Long.class), rs.getTimestamp("deleted_at") != null,
+                rs.getString("user_reaction"), rs.getString("admin_reaction"), rs.getInt("revision"));
     }
 
     record Actor(UUID id, boolean admin) {}
     record Message(long id, UUID userId, UUID senderId, boolean senderAdmin, String kind,
-                   String text, String mediaType, String fileName, Instant createdAt, Instant readAt) {}
+                   String text, String mediaType, String fileName, Instant createdAt, Instant readAt,
+                   Long replyToId, boolean deleted, String userReaction, String adminReaction, int revision) {}
     record Conversation(UUID userId, String username, long lastMessageId, long unread) {}
     record ReadReceipt(UUID userId, boolean readerAdmin, long throughId, int updated) {}
     record Changed(UUID owner, String type, Object data) {}
