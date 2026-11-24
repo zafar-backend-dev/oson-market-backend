@@ -23,18 +23,21 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.transaction.event.TransactionalEventListener;
+import uz.osonmarket.auth.persistence.UserRepository;
 
 @Configuration(proxyBeanMethods = false)
 class OrderSocket {
     private final Map<Session, Client> clients = new ConcurrentHashMap<>();
     private final JwtDecoder decoder;
+    private final UserRepository users;
     private final ObjectMapper json;
     private final Set<String> allowedOrigins;
 
-    OrderSocket(JwtDecoder decoder, ObjectMapper json, @Value("${app.cors-origin}") String origin,
+    OrderSocket(JwtDecoder decoder, ObjectMapper json, UserRepository users, @Value("${app.cors-origin}") String origin,
                 @Value("${app.local-frontend-origin}") String localOrigin,
                 @Value("${app.mobile-frontend-origins}") List<String> mobileOrigins) {
         this.decoder = decoder;
+        this.users = users;
         this.json = json;
         var origins = new LinkedHashSet<>(mobileOrigins);
         origins.add(origin);
@@ -75,7 +78,7 @@ class OrderSocket {
             session.setMaxTextMessageBufferSize(8192);
             session.setMaxIdleTimeout(300_000);
             session.getAsyncRemote().setSendTimeout(5000);
-            clients.put(session, new Client(null, Instant.now().plusSeconds(10)));
+            clients.put(session, new Client(null, Instant.now().plusSeconds(10), false));
             session.addMessageHandler(String.class, message -> authenticate(session, message));
         }
 
@@ -107,7 +110,9 @@ class OrderSocket {
                 close(session);
                 return;
             }
-            var client = new Client(UUID.fromString(jwt.getSubject()), jwt.getExpiresAt());
+            UUID owner = UUID.fromString(jwt.getSubject());
+            boolean admin = users.findById(owner).filter(user -> "ADMIN".equals(user.getRole())).isPresent();
+            var client = new Client(owner, jwt.getExpiresAt(), admin);
             if (clients.replace(session, pending, client)) {
                 send(session, "{\"type\":\"READY\"}");
             }
@@ -122,9 +127,26 @@ class OrderSocket {
                 .formatted(event.notificationId(), event.orderId())
                 + "\"status\":\"%s\",\"createdAt\":\"%s\"".formatted(event.status(), event.createdAt())
                 + (event.status() == OrderStatus.DELIVERED ? ",\"action\":\"RATE_SERVICE\"}" : "}");
+        var now = Instant.now();
+        String adminUpdate = "{\"type\":\"ORDER_CHANGED\",\"orderId\":\"%s\"}".formatted(event.orderId());
         clients.forEach((session, client) -> {
-            if (event.owner().equals(client.owner()) && client.expiresAt().isAfter(Instant.now())) {
+            if (!client.expiresAt().isAfter(now)) return;
+            if (event.owner().equals(client.owner())) {
                 send(session, message);
+            } else if (client.admin()) {
+                send(session, adminUpdate);
+            }
+        });
+    }
+
+    @TransactionalEventListener
+    void publish(OrderOperationsService.OrderChangedEvent event) {
+        String update = "{\"type\":\"ORDER_CHANGED\",\"orderId\":\"%s\"}".formatted(event.orderId());
+        Instant now = Instant.now();
+        clients.forEach((session, client) -> {
+            if (client.expiresAt().isAfter(now)
+                    && (client.admin() || (event.owner() != null && event.owner().equals(client.owner())))) {
+                send(session, update);
             }
         });
     }
@@ -156,5 +178,5 @@ class OrderSocket {
         }
     }
 
-    private record Client(UUID owner, Instant expiresAt) {}
+    private record Client(UUID owner, Instant expiresAt, boolean admin) {}
 }

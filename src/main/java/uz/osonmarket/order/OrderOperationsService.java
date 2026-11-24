@@ -122,6 +122,7 @@ public class OrderOperationsService {
             throw new AuthException(HttpStatus.CONFLICT, "order.fulfillment.locked");
         }
         applyFulfillment(order, request.method(), request.branchId(), request.deliveryAddress(), request.location());
+        notifyOrderChanged(order);
         return detail(order, locale);
     }
 
@@ -218,5 +219,10 @@ public class OrderOperationsService {
     public record Notification(UUID id, String type, UUID orderId, String orderNumber, OrderStatus status,
                                Instant createdAt, Instant readAt, String reason, String action, String title, String message) {}
 
+    void notifyOrderChanged(CustomerOrder order) {
+        events.publishEvent(new OrderChangedEvent(order.user == null ? null : order.user.getId(), order.id));
+    }
+
+    record OrderChangedEvent(UUID owner, UUID orderId) {}
     record OrderStatusEvent(UUID owner, UUID notificationId, UUID orderId, OrderStatus status, Instant createdAt) {}
 }

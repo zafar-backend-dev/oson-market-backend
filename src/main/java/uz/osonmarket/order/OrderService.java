@@ -188,6 +188,7 @@ public class OrderService {
         order.serviceRating = request.rating();
         order.serviceReview = comment;
         order.ratedAt = Instant.now();
+        operations.notifyOrderChanged(order);
         return view(order, language);
     }
 
