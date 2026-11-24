@@ -85,7 +85,7 @@ public class ProfileController {
     @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProfileService.View> upload(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
                                                       @RequestPart("file") MultipartFile file) {
-        return ok(profiles.avatar(id(jwt), images.read(file)));
+        return ok(profiles.avatar(id(jwt), images.readAvatar(file)));
     }
 
     @DeleteMapping("/avatar")

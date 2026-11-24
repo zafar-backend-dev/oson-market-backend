@@ -189,6 +189,11 @@ public class OrderOperationsService {
         }
     }
 
+    @Transactional
+    public void readAll(UUID owner) {
+        notifications.markAllRead(owner, Instant.now());
+    }
+
     private static Pageable page(Pageable pageable, String dateField) {
         return PageRequest.of(pageable.getPageNumber(), Math.min(100, pageable.getPageSize()),
                 Sort.by(Sort.Order.desc(dateField), Sort.Order.desc("id")));

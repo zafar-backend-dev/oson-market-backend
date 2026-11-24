@@ -15,4 +15,8 @@ interface OrderNotificationRepository extends JpaRepository<OrderNotification, U
     @Modifying
     @Query("update OrderNotification n set n.readAt = :now where n.id = :id and n.userId = :owner and n.readAt is null")
     int markRead(@Param("id") UUID id, @Param("owner") UUID owner, @Param("now") Instant now);
+
+    @Modifying
+    @Query("update OrderNotification n set n.readAt = :now where n.userId = :owner and n.readAt is null")
+    int markAllRead(@Param("owner") UUID owner, @Param("now") Instant now);
 }

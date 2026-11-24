@@ -3,6 +3,8 @@ package uz.osonmarket.profile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,9 @@ import uz.osonmarket.auth.api.AuthException;
 
 @Component
 public class AvatarImages {
+    private static final Set<String> AVATAR_FORMATS = Set.of("JPEG", "PNG", "GIF", "BMP", "TIFF", "TIF", "WBMP");
+    private static final Set<String> CATALOG_FORMATS = Set.of("JPEG", "PNG");
+
     private final long maxBytes;
     private final int maxDimension;
 
@@ -23,6 +28,14 @@ public class AvatarImages {
     }
 
     public Image read(MultipartFile file) {
+        return read(file, CATALOG_FORMATS);
+    }
+
+    public Image readAvatar(MultipartFile file) {
+        return read(file, AVATAR_FORMATS);
+    }
+
+    private Image read(MultipartFile file, Set<String> formats) {
         if (file.getSize() > maxBytes) {
             throw new AuthException(HttpStatus.PAYLOAD_TOO_LARGE, "profile.avatar.size");
         }
@@ -34,7 +47,7 @@ public class AvatarImages {
             var reader = readers.next();
             try {
                 String format = reader.getFormatName();
-                if (!"JPEG".equalsIgnoreCase(format) && !"PNG".equalsIgnoreCase(format)) {
+                if (!formats.contains(format.toUpperCase(Locale.ROOT))) {
                     throw invalid();
                 }
                 reader.setInput(data, true, true);

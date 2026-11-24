@@ -38,5 +38,11 @@ public class OrderNotificationController {
         operations.read(UUID.fromString(jwt.getSubject()), id);
     }
 
+    @PatchMapping("/read-all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void readAll(@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
+        operations.readAll(UUID.fromString(jwt.getSubject()));
+    }
+
     public record UnreadCount(long count) {}
 }
