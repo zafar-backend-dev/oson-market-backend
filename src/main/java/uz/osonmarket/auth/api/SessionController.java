@@ -2,6 +2,7 @@ package uz.osonmarket.auth.api;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -15,12 +16,18 @@ public class SessionController {
     private final SessionTokens sessions;
     private final long ttl;
     private final String origin;
+    private final String localOrigin;
+    private final List<String> mobileOrigins;
 
     public SessionController(SessionTokens sessions, @Value("${jwt.refresh-ttl-seconds}") long ttl,
-                             @Value("${app.cors-origin}") String origin) {
+                             @Value("${app.cors-origin}") String origin,
+                             @Value("${app.local-frontend-origin}") String localOrigin,
+                             @Value("${app.mobile-frontend-origins}") List<String> mobileOrigins) {
         this.sessions = sessions;
         this.ttl = ttl;
         this.origin = origin;
+        this.localOrigin = localOrigin;
+        this.mobileOrigins = List.copyOf(mobileOrigins);
     }
 
     @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -46,14 +53,15 @@ public class SessionController {
     }
 
     private ResponseCookie cookie(String value, long maxAge, HttpServletRequest request) {
+        boolean secure = request.isSecure() || origin.startsWith("https://");
         return ResponseCookie.from(COOKIE, value).httpOnly(true)
-                .secure(request.isSecure() || origin.startsWith("https://")).sameSite("Lax")
+                .secure(secure).sameSite(secure ? "None" : "Lax")
                 .path("/api/auth").maxAge(Duration.ofSeconds(maxAge)).build();
     }
 
     private void checkOrigin(HttpServletRequest request) {
         String supplied = request.getHeader(HttpHeaders.ORIGIN);
-        if (supplied != null && !origin.equals(supplied)
+        if (supplied != null && !origin.equals(supplied) && !localOrigin.equals(supplied) && !mobileOrigins.contains(supplied)
                 && !supplied.equals(request.getScheme() + "://" + request.getHeader(HttpHeaders.HOST))) {
             throw new AuthException(HttpStatus.FORBIDDEN, "auth.forbidden");
         }

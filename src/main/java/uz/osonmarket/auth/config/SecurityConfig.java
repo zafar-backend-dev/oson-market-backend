@@ -106,27 +106,35 @@ public class SecurityConfig {
 
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource(@Value("${app.cors-origin}") String origin) {
-        var config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://*", "https://*"));
-        config.setAllowedMethods(List.of("*"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Retry-After"));
-        var source = new UrlBasedCorsConfigurationSource();
-        var exchangeCors = new CorsConfiguration(config);
-        exchangeCors.setAllowedOriginPatterns(List.of());
+    CorsConfigurationSource corsConfigurationSource(@Value("${app.cors-origin}") String origin,
+            @Value("${app.local-frontend-origin}") String localOrigin,
+            @Value("${app.mobile-frontend-origins}") List<String> mobileOrigins) {
+        var publicCors = new CorsConfiguration();
+        publicCors.setAllowedOriginPatterns(List.of("http://*", "https://*"));
+        publicCors.setAllowedOrigins(mobileOrigins);
+        publicCors.setAllowedMethods(List.of("*"));
+        publicCors.setAllowedHeaders(List.of("*"));
+        publicCors.setExposedHeaders(List.of("Retry-After", "Content-Range", "Accept-Ranges"));
+
+        var trustedOrigins = new java.util.LinkedHashSet<>(mobileOrigins);
+        trustedOrigins.add(origin);
+        trustedOrigins.add(localOrigin);
+        var sessionCors = new CorsConfiguration(publicCors);
+        sessionCors.setAllowedOriginPatterns(List.of());
+        sessionCors.setAllowedOrigins(List.copyOf(trustedOrigins));
+        sessionCors.setAllowCredentials(true);
+
+        var exchangeCors = new CorsConfiguration(sessionCors);
         exchangeCors.setAllowedOrigins(List.of(origin));
-        exchangeCors.setAllowCredentials(true);
+
+        var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/auth/google/exchange", exchangeCors);
-        source.registerCorsConfiguration("/api/auth/sign-in/verify", exchangeCors);
-        source.registerCorsConfiguration("/api/auth/sign-up/verify", exchangeCors);
-        source.registerCorsConfiguration("/api/auth/refresh", exchangeCors);
-        source.registerCorsConfiguration("/api/auth/logout", exchangeCors);
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/api/**", sessionCors);
         return request -> {
             var matched = source.getCorsConfiguration(request);
-            return matched == exchangeCors && !origin.equals(request.getHeader(HttpHeaders.ORIGIN))
-                    ? config : matched;
+            if (matched == null) return null;
+            String supplied = request.getHeader(HttpHeaders.ORIGIN);
+            return supplied != null && matched.getAllowedOrigins().contains(supplied) ? matched : publicCors;
         };
     }
 

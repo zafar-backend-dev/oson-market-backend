@@ -71,6 +71,8 @@ app:
     avatar-max-bytes: 2097152
     avatar-max-dimension: 2048
   cors-origin: https://oson-market-frontend.vercel.app
+  local-frontend-origin: http://localhost:3000
+  mobile-frontend-origins: https://localhost,http://localhost,capacitor://localhost
 
 server:
   port: 8080
