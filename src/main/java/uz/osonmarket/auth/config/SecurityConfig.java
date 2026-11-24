@@ -189,7 +189,7 @@ public class SecurityConfig {
         var resolver = new MobileGoogleAuthorizationResolver(clients, exchange);
         return http.authorizeHttpRequests(a -> a.requestMatchers("/oauth2/authorization/google",
                         "/login/oauth2/code/google", "/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/ws/orders", "/ws/mobile/chat", "/swagger-ui.html", "/swagger-ui/**",
+                        .requestMatchers(HttpMethod.GET, "/ws/orders", "/ws/mobile/chat", "/ws/admin/chat", "/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                         .anyRequest().denyAll())
                 .oauth2Login(o -> o

@@ -17,15 +17,22 @@ import org.springframework.web.server.ResponseStatusException;
 class ChatController {
     private final ChatService chat;
     private final List<String> origins;
+    private final List<String> adminOrigins;
 
-    ChatController(ChatService chat, @Value("${app.mobile-frontend-origins}") List<String> origins) {
+    ChatController(ChatService chat, @Value("${app.mobile-frontend-origins}") List<String> origins,
+                   @Value("${app.cors-origin}") String webOrigin,
+                   @Value("${app.local-frontend-origin}") String localOrigin) {
         this.chat = chat;
         this.origins = origins;
+        this.adminOrigins = List.of(webOrigin, localOrigin);
     }
 
     private ChatService.Actor actor(Jwt jwt, String origin) {
-        if (origin == null || !origins.contains(origin)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        return chat.actor(UUID.fromString(jwt.getSubject()));
+        var actor = chat.actor(UUID.fromString(jwt.getSubject()));
+        if (origin == null || !(origins.contains(origin) || (actor.admin() && adminOrigins.contains(origin)))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        return actor;
     }
 
     @GetMapping("/conversations")
@@ -67,7 +74,9 @@ class ChatController {
     ResponseEntity<byte[]> attachment(@AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "Origin", required = false) String origin, @PathVariable long messageId) {
         var media = chat.attachment(actor(jwt, origin), messageId);
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(media.type()))
+        var contentType = "image/x-chat-original".equals(media.type())
+                ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(media.type());
+        return ResponseEntity.ok().contentType(contentType)
                 .cacheControl(CacheControl.noStore()).header("X-Content-Type-Options", "nosniff")
                 .header("Content-Disposition", ContentDisposition.attachment()
                         .filename(media.name(), StandardCharsets.UTF_8).build().toString())

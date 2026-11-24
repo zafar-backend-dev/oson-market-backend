@@ -1,11 +1,8 @@
 package uz.osonmarket.chat;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import javax.imageio.ImageIO;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,45 +27,35 @@ record ChatMedia(String type, String name, byte[] bytes) {
         return new ChatMedia(type, name.isBlank() ? kind.toLowerCase(Locale.ROOT) : name, bytes);
     }
 
-    private static String imageType(byte[] bytes) throws IOException {
+    private static String imageType(byte[] bytes) {
+        if (matches(bytes, 0, "\u00ff\u00d8\u00ff")) return "image/jpeg";
+        if (matches(bytes, 0, "\u0089PNG\r\n\u001a\n")) return "image/png";
+        if (matches(bytes, 0, "GIF87a") || matches(bytes, 0, "GIF89a")) return "image/gif";
+        if (bytes.length >= 26 && matches(bytes, 0, "BM")) return "image/bmp";
+        if (matches(bytes, 0, "II*\u0000") || matches(bytes, 0, "MM\u0000*")
+                || matches(bytes, 0, "II+\u0000") || matches(bytes, 0, "MM\u0000+")) return "image/tiff";
+        if (matches(bytes, 0, "FUJIFILMCCD-RAW") || matches(bytes, 0, "IIU\u0000")
+                || matches(bytes, 0, "IIRO") || matches(bytes, 0, "MMOR")) return "image/x-chat-original";
+        if (matches(bytes, 0, "\u00ff\n") || matches(bytes, 0, "\u0000\u0000\u0000\fJXL \r\n\u0087\n")) return "image/jxl";
+        if (matches(bytes, 0, "\u0000\u0000\u0000\u000cjP  \r\n\u0087\n")) return "image/jp2";
         if (matches(bytes, 0, "RIFF") && matches(bytes, 8, "WEBP")
                 && (matches(bytes, 12, "VP8 ") || matches(bytes, 12, "VP8L") || matches(bytes, 12, "VP8X"))) {
             return "image/webp";
         }
         if (matches(bytes, 4, "ftyp")) {
             String brand = new String(bytes, 8, 4, StandardCharsets.US_ASCII);
-            return switch (brand) {
+            String type = switch (brand) {
                 case "avif", "avis" -> "image/avif";
-                case "heic", "heix", "hevc", "hevx" -> "image/heic";
+                case "heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs" -> "image/heic";
                 case "mif1", "msf1" -> "image/heif";
+                case "crx " -> "image/x-chat-original";
                 default -> null;
             };
+            if (type != null) return type;
         }
         if (matches(bytes, 0, "\u0000\u0000\u0001\u0000")) return "image/x-icon";
         if (matches(bytes, 0, "8BPS")) return "image/vnd.adobe.photoshop";
-        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) return null;
-            var reader = readers.next();
-            try {
-                reader.setInput(input, true, true);
-                if (reader.getWidth(0) < 1 || reader.getHeight(0) < 1
-                        || (long) reader.getWidth(0) * reader.getHeight(0) > 100_000_000L) return null;
-                return switch (reader.getFormatName().toUpperCase(Locale.ROOT)) {
-                    case "JPEG" -> "image/jpeg";
-                    case "PNG" -> "image/png";
-                    case "GIF" -> "image/gif";
-                    case "BMP" -> "image/bmp";
-                    case "TIFF", "TIF" -> "image/tiff";
-                    case "WBMP" -> "image/vnd.wap.wbmp";
-                    default -> null;
-                };
-            } finally {
-                reader.dispose();
-            }
-        } catch (IOException | RuntimeException ex) {
-            return null;
-        }
+        return null;
     }
 
     private static String voiceType(byte[] bytes) {

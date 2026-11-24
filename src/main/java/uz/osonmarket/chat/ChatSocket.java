@@ -32,13 +32,17 @@ class ChatSocket {
     private final JwtDecoder decoder;
     private final ObjectMapper json;
     private final List<String> origins;
+    private final List<String> adminOrigins;
 
     ChatSocket(ChatService chat, JwtDecoder decoder, ObjectMapper json,
-               @Value("${app.mobile-frontend-origins}") List<String> origins) {
+               @Value("${app.mobile-frontend-origins}") List<String> origins,
+               @Value("${app.cors-origin}") String webOrigin,
+               @Value("${app.local-frontend-origin}") String localOrigin) {
         this.chat = chat;
         this.decoder = decoder;
         this.json = json;
         this.origins = origins;
+        this.adminOrigins = List.of(webOrigin, localOrigin);
     }
 
     @Bean
@@ -48,33 +52,45 @@ class ChatSocket {
             public void contextInitialized(ServletContextEvent event) {
                 var container = (ServerContainer) event.getServletContext().getAttribute(ServerContainer.class.getName());
                 try {
-                    container.addEndpoint(ServerEndpointConfig.Builder.create(Connection.class, "/ws/mobile/chat")
-                            .configurator(new ServerEndpointConfig.Configurator() {
-                                @Override
-                                public boolean checkOrigin(String origin) {
-                                    return origin != null && origins.contains(origin);
-                                }
-
-                                @Override
-                                public <T> T getEndpointInstance(Class<T> type) {
-                                    return type.cast(new Connection());
-                                }
-                            }).build());
+                    register(container, "/ws/mobile/chat", origins, false);
+                    register(container, "/ws/admin/chat", adminOrigins, true);
                 } catch (DeploymentException error) {
-                    throw new IllegalStateException("Cannot register mobile chat WebSocket", error);
+                    throw new IllegalStateException("Cannot register chat WebSocket", error);
                 }
             }
         });
     }
 
+    private void register(ServerContainer container, String path, List<String> allowed, boolean adminOnly)
+            throws DeploymentException {
+                    container.addEndpoint(ServerEndpointConfig.Builder.create(Connection.class, path)
+                            .configurator(new ServerEndpointConfig.Configurator() {
+                                @Override
+                                public boolean checkOrigin(String origin) {
+                                    return origin != null && allowed.contains(origin);
+                                }
+
+                                @Override
+                                public <T> T getEndpointInstance(Class<T> type) {
+                                    return type.cast(new Connection(adminOnly));
+                                }
+                            }).build());
+    }
+
     public final class Connection extends Endpoint {
+        private final boolean adminOnly;
+
+        Connection(boolean adminOnly) {
+            this.adminOnly = adminOnly;
+        }
+
         @Override
         public void onOpen(Session session, EndpointConfig config) {
             session.setMaxTextMessageBufferSize(32768);
             session.setMaxIdleTimeout(120_000);
             session.getUserProperties().put("org.apache.tomcat.websocket.BLOCKING_SEND_TIMEOUT", 3000L);
             clients.put(session, new Client(null, null, Instant.now().plusSeconds(10)));
-            session.addMessageHandler(String.class, frame -> receive(session, frame));
+            session.addMessageHandler(String.class, frame -> receive(session, frame, adminOnly));
         }
 
         @Override
@@ -89,7 +105,7 @@ class ChatSocket {
         }
     }
 
-    private void receive(Session session, String frame) {
+    private void receive(Session session, String frame, boolean adminOnly) {
         var client = clients.get(session);
         if (client == null || !client.expires().isAfter(Instant.now())) {
             close(session);
@@ -109,6 +125,10 @@ class ChatSocket {
                 var jwt = decoder.decode(token);
                 if (jwt.getExpiresAt() == null) throw new IllegalArgumentException();
                 var actor = chat.actor(UUID.fromString(jwt.getSubject()));
+                if (adminOnly && !actor.admin()) {
+                    close(session);
+                    return;
+                }
                 if (clients.replace(session, client, new Client(actor, token, jwt.getExpiresAt()))) {
                     send(session, Map.of("type", "READY"));
                 }
@@ -163,7 +183,9 @@ class ChatSocket {
 
     private ChatService.Actor currentActor(Client client) {
         decoder.decode(client.token());
-        return chat.actor(client.actor().id());
+        var actor = chat.actor(client.actor().id());
+        if (actor.admin() != client.actor().admin()) throw new JwtException("Chat role changed");
+        return actor;
     }
 
     private int pageSize(JsonNode input) {
