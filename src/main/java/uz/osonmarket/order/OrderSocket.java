@@ -9,7 +9,10 @@ import jakarta.websocket.server.ServerContainer;
 import jakarta.websocket.server.ServerEndpointConfig;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,12 +29,17 @@ class OrderSocket {
     private final Map<Session, Client> clients = new ConcurrentHashMap<>();
     private final JwtDecoder decoder;
     private final ObjectMapper json;
-    private final String origin;
+    private final Set<String> allowedOrigins;
 
-    OrderSocket(JwtDecoder decoder, ObjectMapper json, @Value("${app.cors-origin}") String origin) {
+    OrderSocket(JwtDecoder decoder, ObjectMapper json, @Value("${app.cors-origin}") String origin,
+                @Value("${app.local-frontend-origin}") String localOrigin,
+                @Value("${app.mobile-frontend-origins}") List<String> mobileOrigins) {
         this.decoder = decoder;
         this.json = json;
-        this.origin = origin;
+        var origins = new LinkedHashSet<>(mobileOrigins);
+        origins.add(origin);
+        origins.add(localOrigin);
+        this.allowedOrigins = Set.copyOf(origins);
     }
 
     @Bean
@@ -46,7 +54,7 @@ class OrderSocket {
                             .configurator(new ServerEndpointConfig.Configurator() {
                                 @Override
                                 public boolean checkOrigin(String offered) {
-                                    return offered == null || origin.equals(offered);
+                                    return offered == null || allowedOrigins.contains(offered);
                                 }
 
                                 @Override
