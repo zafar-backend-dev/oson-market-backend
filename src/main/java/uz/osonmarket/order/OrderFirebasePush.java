@@ -9,6 +9,7 @@ import java.net.*;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -41,7 +42,7 @@ class OrderFirebasePush {
         this.devices = devices;
         this.json = json;
         this.executor = executor;
-        this.account = credentialsFile.isBlank() ? null : readAccount(Path.of(credentialsFile));
+        this.account = credentialsFile.isBlank() ? null : loadAccount(credentialsFile.strip());
     }
 
     @TransactionalEventListener
@@ -121,13 +122,17 @@ class OrderFirebasePush {
         return accessToken;
     }
 
-    private Account readAccount(Path path) {
-        try (var input = Files.newInputStream(path)) {
+    private Account loadAccount(String credentialsFile) {
+        try (var input = Files.newInputStream(Path.of(credentialsFile))) {
             var config = json.readTree(input);
+            if (config == null || !config.isObject()) {
+                throw new IllegalArgumentException("Invalid service account");
+            }
             String project = config.path("project_id").asText();
             String email = config.path("client_email").asText();
             if (!"service_account".equals(config.path("type").asText())
-                    || !project.matches("[a-z0-9-]+") || email.isBlank()) {
+                    || !project.matches("[a-z0-9-]+") || email.isBlank()
+                    || config.path("private_key").asText().isBlank()) {
                 throw new IllegalArgumentException("Invalid service account");
             }
             String pem = config.path("private_key").asText().replace("-----BEGIN PRIVATE KEY-----", "")
@@ -135,9 +140,18 @@ class OrderFirebasePush {
             var spec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(pem));
             var key = (RSAPrivateKey) KeyFactory.getInstance("RSA").generatePrivate(spec);
             return new Account(email, key, URI.create("https://fcm.googleapis.com/v1/projects/" + project + "/messages:send"));
-        } catch (Exception ex) {
-            throw new IllegalStateException("Firebase service account configuration is invalid");
+        } catch (NoSuchFileException ex) {
+            LOG.warn("Firebase order push disabled: service account file is missing. Check the Render Secret Files entry and GOOGLE_APPLICATION_CREDENTIALS.");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            LOG.warn("Firebase order push disabled: service account file is not valid JSON.");
+        } catch (IOException | SecurityException ex) {
+            LOG.warn("Firebase order push disabled: service account file could not be read ({}).", ex.getClass().getSimpleName());
+        } catch (InvalidPathException ex) {
+            LOG.warn("Firebase order push disabled: GOOGLE_APPLICATION_CREDENTIALS is not a valid file path.");
+        } catch (GeneralSecurityException | IllegalArgumentException ex) {
+            LOG.warn("Firebase order push disabled: use a Firebase service account JSON with a valid RSA private key.");
         }
+        return null;
     }
 
     private record Account(String email, RSAPrivateKey key, URI sendUrl) {}
