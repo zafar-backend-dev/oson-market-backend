@@ -50,6 +50,8 @@ brevo:
   base-url: https://api.brevo.com/v3
 
 app:
+  push:
+    credentials-file: "${GOOGLE_APPLICATION_CREDENTIALS:}"
   catalog:
     seed-demo: true
   email:
