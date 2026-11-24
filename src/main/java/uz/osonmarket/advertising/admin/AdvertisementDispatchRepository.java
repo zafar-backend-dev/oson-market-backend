@@ -9,6 +9,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 interface AdvertisementDispatchRepository extends JpaRepository<AdvertisementDispatch, UUID> {
+    @Query(value = """
+            SELECT * FROM advertisement_dispatches WHERE next_push_at <= :now
+            ORDER BY next_push_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<AdvertisementDispatch> lockNextPush(Instant now);
     @Query("select d from AdvertisementDispatch d where d.advertisementId = :id and d.revision = :revision")
     Optional<AdvertisementDispatch> revision(UUID id, long revision);
 

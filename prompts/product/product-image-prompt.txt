@@ -1,0 +1,10 @@
+Oson Market uchun mahsulot fotosuratini tayyorlang.
+
+Mahsulot: [nomi, modeli va rangi]
+Rakurs: [old tomondan / 45 darajadan / muhim detal]
+
+Rasm 1600 × 1200 piksel, 4:3 nisbatda bo‘lsin. Fon chetdan chetgacha sof oq (#FFFFFF, RGB 255, 255, 255) bo‘lsin. Mahsulot markazda va to‘liq ko‘rinsin. Har tomondan taxminan 8–12% bo‘sh joy qoldiring. Yumshoq yoritishdan foydalaning, chetlari tiniq va ranglari asl mahsulotga mos bo‘lsin. Mahsulot ostida juda yengil tabiiy soya bo‘lishi mumkin. Rasmga ramka, gradient, matn yoki suv belgisi qo‘shmang.
+
+Har bir mahsulot uchun 2–3 ta alohida rasm tayyorlang. Asosiy rasmda mahsulot to‘liq ko‘rinsin. Qolgan rasmlarda boshqa rakurs va muhim detalni ko‘rsating. Barcha rasmlarda bir xil o‘lcham va oq fon ishlating.
+
+Eksport uchun sRGB JPEG (.jpg), 88–92% sifat tavsiya etiladi. Mayda yozuv yoki aniq grafik detallar uchun PNG (.png) ishlating. Imkon bo‘lsa, har bir fayl hajmini 300 KB–1 MB atrofida saqlang.

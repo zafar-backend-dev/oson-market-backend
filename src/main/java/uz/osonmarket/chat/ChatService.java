@@ -20,7 +20,8 @@ class ChatService implements ApplicationRunner {
             id, owner_id, sender_id, sender_admin, text, media_type, media_name,
             created_at, read_at, reply_to_id, deleted_at, user_reaction, admin_reaction, revision
             """;
-    private static final Set<String> REACTIONS = Set.of("👍", "❤️", "😂", "😮", "😢", "🙏");
+    private static final Set<String> REACTIONS = Set.of("👍", "❤️", "😂", "😮", "😢", "🙏",
+            "🔥", "👏", "🎉", "😍", "😊", "🤔", "😎", "🤩", "💯", "✅", "👎", "😡", "🙌", "💚", "✨", "👀", "🤝", "💪");
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final ApplicationEventPublisher events;

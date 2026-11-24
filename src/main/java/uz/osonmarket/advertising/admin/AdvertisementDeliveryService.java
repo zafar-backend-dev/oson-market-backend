@@ -42,6 +42,7 @@ class AdvertisementDeliveryService {
 
     @Transactional(readOnly = true)
     public PagedModel<Delivery> inbox(Channel channel, UUID userId, Pageable page) {
+        requireApp(channel);
         return new PagedModel<>(dispatches.inbox(channel == Channel.WEB, Instant.now(), page).map(dispatch -> {
             var read = entities.find(AdvertisementNotificationRead.class,
                     new AdvertisementNotificationRead.Key(userId, dispatch.id));
@@ -51,11 +52,13 @@ class AdvertisementDeliveryService {
 
     @Transactional(readOnly = true)
     public long unread(Channel channel, UUID userId) {
+        requireApp(channel);
         return dispatches.unread(channel == Channel.WEB, Instant.now(), userId);
     }
 
     @Transactional
     public void read(Channel channel, UUID userId, UUID id) {
+        requireApp(channel);
         inboxDispatch(channel, id);
         locks.lock("advertisement-read:" + userId + ":" + id);
         var key = new AdvertisementNotificationRead.Key(userId, id);
@@ -70,6 +73,7 @@ class AdvertisementDeliveryService {
 
     @Transactional(readOnly = true)
     public ResponseEntity<? extends Resource> media(Channel channel, UUID id, boolean inbox) {
+        requireApp(channel);
         var dispatch = inbox ? inboxDispatch(channel, id) :
                 dispatches.liveById(channel == Channel.WEB, Instant.now(), id)
                         .orElseThrow(AdvertisementDeliveryService::notFound);
@@ -89,7 +93,7 @@ class AdvertisementDeliveryService {
             String prefix = inbox ? "/api/advertisement-notifications/" : "/api/site/advertisements/";
             var media = snapshot.media();
             return new Delivery(dispatch.id, snapshot.id(), snapshot.uz(), snapshot.ru(), snapshot.targetUrl(),
-                    media.contentType(), prefix + dispatch.id + "/media?channel=" + channel,
+                    media == null ? null : media.contentType(), media == null ? null : prefix + dispatch.id + "/media?channel=" + channel,
                     dispatch.availableAt, readAt);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Invalid stored advertisement dispatch", ex);
@@ -101,7 +105,11 @@ class AdvertisementDeliveryService {
         if (dispatch.webEnabled) channels.add(Channel.WEB);
         if (dispatch.appEnabled) channels.add(Channel.APP);
         return new DispatchView(dispatch.id, dispatch.advertisementId, dispatch.revision, channels,
-                dispatch.actorId, dispatch.sentAt, dispatch.availableAt);
+                dispatch.actorId, dispatch.sentAt, dispatch.availableAt, dispatch.pushStatus);
+    }
+
+    private static void requireApp(Channel channel) {
+        if (channel != Channel.APP) throw notFound();
     }
 
     private static AuthException notFound() {
@@ -109,7 +117,7 @@ class AdvertisementDeliveryService {
     }
 
     public record DispatchView(UUID id, UUID advertisementId, long revision, Set<Channel> channels,
-                               UUID actorId, Instant sentAt, Instant availableAt) {}
+                               UUID actorId, Instant sentAt, Instant availableAt, String pushStatus) {}
 
     public record Delivery(UUID id, UUID advertisementId, Translation uz, Translation ru, String targetUrl,
                            String contentType, String mediaUrl, Instant createdAt, Instant readAt) {}

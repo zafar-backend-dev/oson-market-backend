@@ -18,5 +18,8 @@ class AdvertisementDispatch {
     @Column(nullable = false) Instant sentAt;
     @Column(nullable = false) Instant availableAt;
     UUID mediaId;
+    Instant nextPushAt;
+    String pushStatus;
+    Integer pushAttempts;
     @Column(nullable = false, columnDefinition = "text") String snapshot;
 }

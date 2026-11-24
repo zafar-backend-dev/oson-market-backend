@@ -3,7 +3,7 @@ package uz.osonmarket.advertising.admin;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
-import java.net.URI;
+import uz.osonmarket.catalog.persistence.ProductRepository;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Locale;
@@ -28,10 +28,11 @@ class AdvertisementService {
     private final AdvertisementDispatchRepository dispatches;
     private final AuthLocks locks;
     private final ObjectMapper json;
+    private final ProductRepository products;
 
     AdvertisementService(EntityManager entities, AdvertisementRepository advertisements,
                          AdvertisementHistoryRepository history, AdvertisementAssets assets, AuthLocks locks,
-                         ObjectMapper json, AdvertisementDispatchRepository dispatches) {
+                         ObjectMapper json, AdvertisementDispatchRepository dispatches, ProductRepository products) {
         this.entities = entities;
         this.advertisements = advertisements;
         this.history = history;
@@ -39,6 +40,7 @@ class AdvertisementService {
         this.locks = locks;
         this.json = json;
         this.dispatches = dispatches;
+        this.products = products;
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +128,9 @@ class AdvertisementService {
 
         Advertisement ad = editable(id, revision);
         Instant now = Instant.now();
+        ad.targetUrl = target(ad.targetUrl);
+        ad.webEnabled = false;
+        ad.appEnabled = true;
         ad.status = Status.PUBLISHED;
         validatePublication(ad, now);
         Snapshot snapshot = record(ad, "SENT", actor, now, null).advertisement();
@@ -134,11 +139,14 @@ class AdvertisementService {
         sent.advertisementId = id;
         sent.requestedRevision = revision;
         sent.revision = ad.revision;
-        sent.webEnabled = ad.webEnabled;
-        sent.appEnabled = ad.appEnabled;
+        sent.webEnabled = false;
+        sent.appEnabled = true;
         sent.actorId = actor;
         sent.sentAt = now;
         sent.availableAt = ad.startsAt != null && ad.startsAt.isAfter(now) ? ad.startsAt : now;
+        sent.nextPushAt = sent.availableAt;
+        sent.pushStatus = "QUEUED";
+        sent.pushAttempts = 0;
         sent.mediaId = ad.mediaId;
         try {
             sent.snapshot = json.writeValueAsString(snapshot);
@@ -181,8 +189,8 @@ class AdvertisementService {
         ad.titleRu = input.ru().title().strip();
         ad.descriptionUz = input.uz().description();
         ad.descriptionRu = input.ru().description();
-        ad.webEnabled = input.channels().contains(Channel.WEB);
-        ad.appEnabled = input.channels().contains(Channel.APP);
+        ad.webEnabled = false;
+        ad.appEnabled = true;
         ad.targetUrl = target(input.targetUrl());
         ad.startsAt = input.startsAt();
         ad.endsAt = input.endsAt();
@@ -193,29 +201,25 @@ class AdvertisementService {
     }
 
     private String target(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+        String path = value == null ? "" : value.strip();
+        if (path.length() > 220 || !path.matches("/products/[A-Za-z0-9_-]+")) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "advertisement.invalidTarget");
         }
-        try {
-            URI url = URI.create(value.strip());
-            if (!url.isAbsolute() && url.getRawAuthority() == null && url.toString().startsWith("/")
-                    && !url.toString().startsWith("//")) {
-                return url.toString();
+        String identifier = path.substring("/products/".length());
+        var product = products.findBySlug(identifier);
+        if (product.isEmpty() && identifier.matches("[0-9a-fA-F-]{36}")) {
+            try {
+                product = products.findById(UUID.fromString(identifier));
+            } catch (IllegalArgumentException ignored) {
+                // The product identifier may also be a slug.
             }
-            if ("https".equalsIgnoreCase(url.getScheme()) && url.getHost() != null && url.getUserInfo() == null) {
-                return url.toString();
-            }
-        } catch (IllegalArgumentException ignored) {
-            // Invalid URLs share one localized error.
         }
-        throw new AuthException(HttpStatus.BAD_REQUEST, "advertisement.invalidTarget");
+        if (product.isEmpty()) throw new AuthException(HttpStatus.BAD_REQUEST, "advertisement.invalidTarget");
+        return path;
     }
 
     private void validatePublication(Advertisement ad, Instant now) {
         if (ad.status == Status.PUBLISHED) {
-            if (ad.mediaId == null) {
-                throw new AuthException(HttpStatus.BAD_REQUEST, "advertisement.mediaRequired");
-            }
             if (ad.endsAt != null && !ad.endsAt.isAfter(now)) {
                 throw new AuthException(HttpStatus.BAD_REQUEST, "advertisement.invalidSchedule");
             }

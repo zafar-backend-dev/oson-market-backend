@@ -19,17 +19,6 @@ public class AdvertisementDeliveryController {
         this.deliveries = deliveries;
     }
 
-    @GetMapping("/api/site/advertisements")
-    public PagedModel<Delivery> live(@RequestParam(defaultValue = "WEB") Channel channel, Pageable page) {
-        return deliveries.live(channel, page);
-    }
-
-    @GetMapping("/api/site/advertisements/{id}/media")
-    public ResponseEntity<? extends Resource> publicMedia(@PathVariable UUID id,
-                                          @RequestParam(defaultValue = "WEB") Channel channel) {
-        return deliveries.media(channel, id, false);
-    }
-
     @GetMapping("/api/advertisement-notifications")
     public PagedModel<Delivery> inbox(@RequestParam(defaultValue = "WEB") Channel channel, Pageable page,
                                      @AuthenticationPrincipal Jwt jwt) {

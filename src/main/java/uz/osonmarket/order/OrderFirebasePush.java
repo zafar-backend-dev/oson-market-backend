@@ -25,7 +25,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import uz.osonmarket.chat.ChatPushEvent;
 
 @Component
-class OrderFirebasePush {
+public class OrderFirebasePush {
     private static final URI TOKEN_URL = URI.create("https://oauth2.googleapis.com/token");
     private static final String SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
     private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(OrderFirebasePush.class);
@@ -100,11 +100,7 @@ class OrderFirebasePush {
                 "data", data,
                 "android", Map.of("priority", "HIGH", "notification", Map.of(
                         "channel_id", channel, "sound", "default", "tag", tag))));
-        var request = HttpRequest.newBuilder(account.sendUrl()).timeout(Duration.ofSeconds(10))
-                .header("Authorization", "Bearer " + token())
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build();
-        var response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        var response = sendPayload(payload);
         if (response.statusCode() == 200) return;
         if (response.statusCode() == 404) {
             for (var detail : json.readTree(response.body()).path("error").path("details")) {
@@ -115,6 +111,28 @@ class OrderFirebasePush {
             }
         }
         LOG.warn("Firebase rejected push for {} with HTTP {}", channel, response.statusCode());
+    }
+
+    public int sendPromotion(UUID id, String target, String title, String body, String titleRu, String bodyRu)
+            throws IOException, InterruptedException, JOSEException {
+        if (account == null) return 503;
+        return sendPayload(Map.of("message", Map.of(
+                "topic", "oson_android_promotions",
+                "notification", Map.of("title", title, "body", body),
+                "data", Map.of("type", "PROMOTION", "id", id.toString(), "target", target,
+                        "titleRu", titleRu, "bodyRu", bodyRu),
+                "android", Map.of("priority", "HIGH", "notification", Map.of(
+                        "channel_id", "oson_promotions", "sound", "default", "tag", "promotion-" + id)))))
+                .statusCode();
+    }
+
+    private HttpResponse<String> sendPayload(Map<String, ?> payload)
+            throws IOException, InterruptedException, JOSEException {
+        var request = HttpRequest.newBuilder(account.sendUrl()).timeout(Duration.ofSeconds(10))
+                .header("Authorization", "Bearer " + token())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private synchronized String token() throws IOException, InterruptedException, JOSEException {
