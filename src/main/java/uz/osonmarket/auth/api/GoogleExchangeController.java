@@ -30,5 +30,18 @@ public class GoogleExchangeController {
         return response.body(token);
     }
 
+    @PostMapping("/api/auth/google/mobile/exchange")
+    public ResponseEntity<AccessTokens.Token> mobile(@Valid @RequestBody MobileRequest body,
+                                                     HttpServletRequest request, Locale locale) {
+        var token = exchange.redeemMobile(body.loginCode(), body.verifier());
+        var response = ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_LANGUAGE, AuthMessages.language(locale));
+        sessions.attach(response, token, request);
+        return response.body(token);
+    }
+
+    public record MobileRequest(@NotNull @Pattern(regexp = "[A-Za-z0-9_-]{43}") String loginCode,
+                                @NotNull @Pattern(regexp = "[A-Za-z0-9_-]{43}") String verifier) {}
+
     public record ExchangeRequest(@NotNull @Pattern(regexp = "[A-Za-z0-9_-]{43}") String loginCode) {}
 }

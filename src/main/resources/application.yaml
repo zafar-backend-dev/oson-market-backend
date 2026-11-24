@@ -59,6 +59,7 @@ app:
     bot-token: "${ORDER_TELEGRAM_BOT_TOKEN}"
   google:
     frontend-callback: https://oson-market-frontend.vercel.app/auth/google/callback
+    mobile-callback: https://oson-market-frontend.vercel.app/auth/mobile/google/callback
   default-admin:
     username: admin
     email: ziyatovzafar98@gmail.com

@@ -149,7 +149,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/sign-in", "/api/auth/sign-in/verify",
                                 "/api/auth/sign-up", "/api/auth/sign-up/verify",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
-                                "/api/auth/google/exchange", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                                "/api/auth/google/exchange", "/api/auth/google/mobile/exchange", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/*", "/api/categories/*/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/tree", "/api/catalog/products/*/images/*",
                                 "/api/catalog/brands/*/logo").permitAll()
@@ -184,13 +184,16 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     SecurityFilterChain google(HttpSecurity http, GoogleAuthService service,
-                               GoogleLoginExchange exchange, LocaleResolver locales) throws Exception {
+                               GoogleLoginExchange exchange, LocaleResolver locales,
+            org.springframework.security.oauth2.client.registration.ClientRegistrationRepository clients) throws Exception {
+        var resolver = new MobileGoogleAuthorizationResolver(clients, exchange);
         return http.authorizeHttpRequests(a -> a.requestMatchers("/oauth2/authorization/google",
                         "/login/oauth2/code/google", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/ws/orders", "/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                         .anyRequest().denyAll())
                 .oauth2Login(o -> o
+                        .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(resolver))
                         .successHandler((req, res, authentication) -> {
                             var locale = locales.resolveLocale(req);
                             AccessTokens.Token token;
