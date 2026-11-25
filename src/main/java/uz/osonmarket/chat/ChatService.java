@@ -86,16 +86,18 @@ class ChatService implements ApplicationRunner {
     List<Conversation> conversations(Actor actor, long before, int limit) {
         if (!actor.admin()) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         return jdbc.query("""
-                SELECT latest.owner_id, u.username, latest.last_id,
+                SELECT latest.owner_id, u.username, p.first_name, p.last_name, p.phone, latest.last_id,
                        (SELECT count(*) FROM mobile_chat_messages unread
                         WHERE unread.owner_id = latest.owner_id AND NOT unread.sender_admin
                           AND unread.read_at IS NULL AND unread.deleted_at IS NULL) AS unread
                 FROM (SELECT DISTINCT ON (owner_id) owner_id, id AS last_id
                       FROM mobile_chat_messages ORDER BY owner_id, id DESC) latest
                 LEFT JOIN users u ON u.id = latest.owner_id
+                LEFT JOIN user_profiles p ON p.user_id = latest.owner_id
                 WHERE latest.last_id < ? ORDER BY latest.last_id DESC LIMIT ?
                 """, (rs, row) -> new Conversation(rs.getObject("owner_id", UUID.class),
-                rs.getString("username"), rs.getLong("last_id"), rs.getLong("unread")), before, limit);
+                rs.getString("username"), rs.getString("first_name"), rs.getString("last_name"),
+                rs.getString("phone"), rs.getLong("last_id"), rs.getLong("unread")), before, limit);
     }
 
     List<Message> history(Actor actor, UUID requested, long cursor, boolean after, int limit) {
@@ -223,7 +225,8 @@ class ChatService implements ApplicationRunner {
     record Message(long id, UUID userId, UUID senderId, boolean senderAdmin, String kind,
                    String text, String mediaType, String fileName, Instant createdAt, Instant readAt,
                    Long replyToId, boolean deleted, String userReaction, String adminReaction, int revision) {}
-    record Conversation(UUID userId, String username, long lastMessageId, long unread) {}
+    record Conversation(UUID userId, String username, String firstName, String lastName, String phone,
+                        long lastMessageId, long unread) {}
     record ReadReceipt(UUID userId, boolean readerAdmin, long throughId, int updated) {}
     record Changed(UUID owner, String type, Object data) {}
 }
