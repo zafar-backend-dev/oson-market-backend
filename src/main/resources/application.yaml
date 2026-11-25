@@ -54,15 +54,15 @@ app:
   push:
     credentials-file: "${GOOGLE_APPLICATION_CREDENTIALS:}"
   catalog:
-    seed-demo: true
+    seed-demo: false
   email:
     # Public HTTPS base URL serving /api/site/logo, accessible to email clients.
     public-base-url: "https://yt3.googleusercontent.com/RZw-lrL5nXgfgAZOiKLzaEuqNTI-PwrwgkJ12amxXoanCG8lz_GbvLTQbW2xXYkTNuwgC1yEEQ=s900-c-k-c0x00ffffff-no-rj"
   order-telegram:
     bot-token: "${ORDER_TELEGRAM_BOT_TOKEN}"
   google:
-    frontend-callback: https://oson-market-frontend.vercel.app/auth/google/callback
-    mobile-callback: https://oson-market-frontend.vercel.app/auth/mobile/google/callback
+    frontend-callback: https://osonmarket24.uz/auth/google/callback
+    mobile-callback: https://osonmarket24.uz/auth/mobile/google/callback
   default-admin:
     username: admin
     email: ziyatovzafar98@gmail.com
@@ -74,12 +74,14 @@ app:
   profile:
     avatar-max-bytes: 2097152
     avatar-max-dimension: 2048
-  cors-origin: https://oson-market-frontend.vercel.app
+  cors-origin: https://osonmarket24.uz
   local-frontend-origin: http://localhost:3000
   mobile-frontend-origins: https://localhost,http://localhost,capacitor://localhost
 
 server:
   port: 8080
+  address: 127.0.0.1
+  forward-headers-strategy: framework
   servlet:
     session:
       timeout: 10m
