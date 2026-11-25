@@ -9,12 +9,13 @@ spring:
       max-file-size: 25MB
       max-request-size: 26MB
   datasource:
-    url: "jdbc:postgresql://ep-withered-hill-b8s25lwy-pooler.c-14.us-east-1.aws.neon.tech:5432/neondb?sslmode=require"
-    username: "neondb_owner"
-    password: "${NEON_DB_PASSWORD}"
+    url: "jdbc:postgresql://localhost:5432/osonmarket"
+    username: "osonmarket"
+    password: "${DB_PASSWORD}"
     hikari:
       maximum-pool-size: 5
-      connection-timeout: 15000
+      minimum-idle: 2
+#      connection-timeout: 15000
   jpa:
     open-in-view: false
     hibernate:
