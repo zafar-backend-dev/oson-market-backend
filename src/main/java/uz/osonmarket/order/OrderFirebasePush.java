@@ -126,6 +126,17 @@ public class OrderFirebasePush {
                 .statusCode();
     }
 
+    public int sendAndroidUpdate(int versionCode) throws IOException, InterruptedException, JOSEException {
+        if (account == null) return 503;
+        return sendPayload(Map.of("message", Map.of(
+                "topic", "oson_android_promotions",
+                "notification", Map.of("title", "Oson Market", "body", "Yangi versiya mavjud / Доступна новая версия"),
+                "data", Map.of("type", "ANDROID_UPDATE", "versionCode", Integer.toString(versionCode)),
+                "android", Map.of("priority", "HIGH", "notification", Map.of(
+                        "channel_id", "oson_promotions", "sound", "default", "tag", "android-update-" + versionCode)))))
+                .statusCode();
+    }
+
     private HttpResponse<String> sendPayload(Map<String, ?> payload)
             throws IOException, InterruptedException, JOSEException {
         var request = HttpRequest.newBuilder(account.sendUrl()).timeout(Duration.ofSeconds(10))

@@ -32,7 +32,7 @@ class ChatSocket {
     private final JwtDecoder decoder;
     private final ObjectMapper json;
     private final List<String> origins;
-    private final List<String> adminOrigins;
+    private final List<String> webOrigins;
 
     ChatSocket(ChatService chat, JwtDecoder decoder, ObjectMapper json,
                @Value("${app.mobile-frontend-origins}") List<String> origins,
@@ -42,7 +42,7 @@ class ChatSocket {
         this.decoder = decoder;
         this.json = json;
         this.origins = origins;
-        this.adminOrigins = List.of(webOrigin, localOrigin);
+        this.webOrigins = List.of(webOrigin, localOrigin);
     }
 
     @Bean
@@ -52,8 +52,10 @@ class ChatSocket {
             public void contextInitialized(ServletContextEvent event) {
                 var container = (ServerContainer) event.getServletContext().getAttribute(ServerContainer.class.getName());
                 try {
-                    register(container, "/ws/mobile/chat", origins, false);
-                    register(container, "/ws/admin/chat", adminOrigins, true);
+                    var customerOrigins = new java.util.ArrayList<>(origins);
+                    customerOrigins.addAll(webOrigins);
+                    register(container, "/ws/mobile/chat", customerOrigins, false);
+                    register(container, "/ws/admin/chat", webOrigins, true);
                 } catch (DeploymentException error) {
                     throw new IllegalStateException("Cannot register chat WebSocket", error);
                 }

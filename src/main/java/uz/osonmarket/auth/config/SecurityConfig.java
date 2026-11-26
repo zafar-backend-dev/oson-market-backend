@@ -160,7 +160,7 @@ public class SecurityConfig {
                                 "/api/catalog/products/*/comments/*", "/api/catalog/products/*/comments/*/replies",
                                 "/api/catalog/products/*/comments/*/like").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/branches", "/api/branches/*/image").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/site/logo", "/api/site/about", "/api/site/advertisements", "/api/site/advertisements/*/media").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/site/logo", "/api/site/about", "/api/site/android-release", "/api/site/advertisements", "/api/site/advertisements/*/media").permitAll()
                         .requestMatchers("/api/admin/**").access((authentication, context) -> {
                             boolean admin = authentication.get() instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken token
                                     && users.findById(UUID.fromString(token.getName()))

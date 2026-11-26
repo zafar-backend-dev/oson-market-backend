@@ -17,19 +17,19 @@ import org.springframework.web.server.ResponseStatusException;
 class ChatController {
     private final ChatService chat;
     private final List<String> origins;
-    private final List<String> adminOrigins;
+    private final List<String> webOrigins;
 
     ChatController(ChatService chat, @Value("${app.mobile-frontend-origins}") List<String> origins,
                    @Value("${app.cors-origin}") String webOrigin,
                    @Value("${app.local-frontend-origin}") String localOrigin) {
         this.chat = chat;
         this.origins = origins;
-        this.adminOrigins = List.of(webOrigin, localOrigin);
+        this.webOrigins = List.of(webOrigin, localOrigin);
     }
 
     private ChatService.Actor actor(Jwt jwt, String origin) {
         var actor = chat.actor(UUID.fromString(jwt.getSubject()));
-        if (origin == null || !(origins.contains(origin) || (actor.admin() && adminOrigins.contains(origin)))) {
+        if (origin == null || !(origins.contains(origin) || webOrigins.contains(origin))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         return actor;
