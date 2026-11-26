@@ -26,7 +26,7 @@ record ChatMedia(String type, String name, byte[] bytes) {
             String contentType = file.getContentType();
             boolean declaredImage = contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("image/");
             boolean imageExtension = name.toLowerCase(Locale.ROOT).matches(
-                    ".*\\.(?:png|jpe?g|jpe|jfif|gif|webp|bmp|dib|tiff?|heic|heif|avif|svgz?|ico|psd|psb|jxl|jp2|j2k|dng|cr2|cr3|nef|arw|raf|rw2|orf|raw|sr2|pef|x3f|tga|dds|exr|hdr|pnm|pbm|pgm|ppm|qoi|xcf|wmf|emf)");
+                    ".*\\.(?:png|jpe?g|jpe|jfif|gif|webp|bmp|dib|tiff?|heic|heif|avif|svgz?|ico|psd|psb|eps|epsf|pcx|dcx|jxl|jp2|j2k|dng|cr2|cr3|nef|arw|raf|rw2|orf|raw|sr2|pef|x3f|tga|dds|exr|hdr|pnm|pbm|pgm|ppm|qoi|xcf|wmf|emf)");
             if (declaredImage || imageExtension) type = "image/x-chat-original";
         }
         if (type == null) throw unsupported();

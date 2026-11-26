@@ -15,7 +15,6 @@ import uz.osonmarket.auth.api.AuthException;
 
 @Component
 public class AvatarImages {
-    private static final Set<String> AVATAR_FORMATS = Set.of("JPEG", "PNG", "GIF", "BMP", "TIFF", "TIF", "WBMP");
     private static final Set<String> CATALOG_FORMATS = Set.of("JPEG", "PNG");
 
     private final long maxBytes;
@@ -32,7 +31,7 @@ public class AvatarImages {
     }
 
     public Image readAvatar(MultipartFile file) {
-        return read(file, AVATAR_FORMATS);
+        return read(file, null);
     }
 
     private Image read(MultipartFile file, Set<String> formats) {
@@ -47,7 +46,7 @@ public class AvatarImages {
             var reader = readers.next();
             try {
                 String format = reader.getFormatName();
-                if (!formats.contains(format.toUpperCase(Locale.ROOT))) {
+                if (formats != null && !formats.contains(format.toUpperCase(Locale.ROOT))) {
                     throw invalid();
                 }
                 reader.setInput(data, true, true);
