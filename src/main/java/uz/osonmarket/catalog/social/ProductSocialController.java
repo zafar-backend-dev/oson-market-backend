@@ -6,7 +6,10 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +38,12 @@ public class ProductSocialController {
     public PagedModel<ProductSocialService.CommentView> replies(@PathVariable UUID productId, @PathVariable UUID commentId,
             @AuthenticationPrincipal Jwt jwt, Pageable pageable) {
         return social.list(productId, commentId, viewer(jwt), pageable);
+    }
+
+    @GetMapping(value = "/comments/{commentId}/avatar", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> avatar(@PathVariable UUID productId, @PathVariable UUID commentId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(MediaType.IMAGE_PNG)
+                .body(social.commentAvatar(productId, commentId));
     }
 
     @PostMapping("/comments")

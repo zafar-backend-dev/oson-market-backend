@@ -37,7 +37,7 @@ public class SiteLogoController {
 
     @PutMapping(value = "/api/admin/site/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public LogoView update(@RequestPart("file") MultipartFile file) {
-        return logos.replace(images.read(file));
+        return logos.replace(images.readAvatar(file));
     }
 
     @Bean

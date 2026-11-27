@@ -155,7 +155,7 @@ public class SecurityConfig {
                                 "/api/catalog/brands/*/logo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/products/*/social", "/api/catalog/products/*/comments",
-                                "/api/catalog/products/*/comments/*/replies").permitAll()
+                                "/api/catalog/products/*/comments/*/replies", "/api/catalog/products/*/comments/*/avatar").permitAll()
                         .requestMatchers("/api/catalog/products/*/like", "/api/catalog/products/*/comments",
                                 "/api/catalog/products/*/comments/*", "/api/catalog/products/*/comments/*/replies",
                                 "/api/catalog/products/*/comments/*/like").authenticated()

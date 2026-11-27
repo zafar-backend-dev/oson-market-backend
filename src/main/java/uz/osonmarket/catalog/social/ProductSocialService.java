@@ -13,18 +13,22 @@ import uz.osonmarket.auth.api.AuthException;
 import uz.osonmarket.catalog.customer.tree.CatalogTreeService;
 import uz.osonmarket.domain.catalog.Product;
 import uz.osonmarket.domain.identity.User;
+import uz.osonmarket.domain.identity.UserProfile;
+import uz.osonmarket.profile.ProfileService;
 
 @Service
 public class ProductSocialService {
     private final EntityManager em;
+    private final ProfileService profiles;
     private final CatalogTreeService catalog;
     private final ProductCommentRepository comments;
     private final ProductLikeRepository productLikes;
     private final ProductCommentLikeRepository commentLikes;
 
     ProductSocialService(EntityManager em, CatalogTreeService catalog, ProductCommentRepository comments,
-                         ProductLikeRepository productLikes, ProductCommentLikeRepository commentLikes) {
+                         ProductLikeRepository productLikes, ProductCommentLikeRepository commentLikes, ProfileService profiles) {
         this.em = em;
+        this.profiles = profiles;
         this.catalog = catalog;
         this.comments = comments;
         this.productLikes = productLikes;
@@ -119,6 +123,16 @@ public class ProductSocialService {
         return new LikeView(commentLikes.countByCommentId(commentId), liked);
     }
 
+    @Transactional(readOnly = true)
+    public byte[] commentAvatar(UUID productId, UUID commentId) {
+        requireProduct(productId, LockModeType.NONE);
+        var comment = em.find(ProductComment.class, commentId);
+        if (comment == null || comment.deletedAt != null || !productId.equals(comment.product.getId())) {
+            throw commentMissing();
+        }
+        return profiles.avatar(comment.author.getId());
+    }
+
     private Product requireProduct(UUID id, LockModeType lock) {
         var product = em.find(Product.class, id, lock);
         if (product == null || !catalog.visible(product)) {
@@ -145,7 +159,11 @@ public class ProductSocialService {
         boolean deleted = comment.deletedAt != null;
         UUID parentId = comment.parent == null ? null : (UUID) em.getEntityManagerFactory()
                 .getPersistenceUnitUtil().getIdentifier(comment.parent);
-        return new CommentView(comment.id, parentId, deleted ? null : comment.author.getUsername(),
+        var authorProfile = deleted ? null : em.find(UserProfile.class, comment.author.getId());
+        String avatarUrl = authorProfile == null || authorProfile.getAvatarMedia() == null ? null
+                : "/api/catalog/products/" + comment.product.getId() + "/comments/" + comment.id
+                + "/avatar?v=" + authorProfile.getAvatarMedia().getId();
+        return new CommentView(comment.id, parentId, deleted ? null : comment.author.getUsername(), avatarUrl,
                 deleted ? null : comment.body, comment.createdAt, comment.editedAt,
                 deleted, deleted ? 0 : commentLikes.countByCommentId(comment.id),
                 !deleted && viewer != null && commentLikes.findByCommentIdAndUserId(comment.id, viewer).isPresent(),
@@ -154,7 +172,7 @@ public class ProductSocialService {
 
     public record Summary(long likeCount, boolean likedByMe, long commentCount) {}
     public record LikeView(long likeCount, boolean likedByMe) {}
-    public record CommentView(UUID id, UUID parentId, String authorUsername, String body, Instant createdAt,
+    public record CommentView(UUID id, UUID parentId, String authorUsername, String authorAvatarUrl, String body, Instant createdAt,
                               Instant editedAt, boolean deleted, long likeCount, boolean likedByMe,
                               long replyCount, boolean ownedByMe) {}
 }
