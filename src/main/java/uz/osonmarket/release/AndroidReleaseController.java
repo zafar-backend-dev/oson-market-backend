@@ -2,6 +2,7 @@ package uz.osonmarket.release;
 
 import com.nimbusds.jose.JOSEException;
 import java.io.IOException;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -29,7 +30,7 @@ public class AndroidReleaseController {
             throw new IllegalArgumentException("Invalid Android release configuration");
         }
         this.settings = settings;
-        this.defaultRelease = new AndroidRelease(versionCode, versionName, minimumVersionCode);
+        this.defaultRelease = new AndroidRelease(versionCode, versionName, minimumVersionCode, null);
         this.push = push;
     }
 
@@ -45,7 +46,19 @@ public class AndroidReleaseController {
                 || input.versionCode() < defaultRelease.minimumVersionCode()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Android version");
         }
-        AndroidReleaseSettings saved = settings.save(new AndroidReleaseSettings(input.versionCode(), name));
+        String url = input.downloadUrl() == null ? currentRelease().downloadUrl() : input.downloadUrl().strip();
+        if (url != null && !url.isEmpty()) {
+            try {
+                URI uri = URI.create(url);
+                if (url.length() > 2048 || !"https".equalsIgnoreCase(uri.getScheme())
+                        || uri.getHost() == null || uri.getUserInfo() != null) {
+                    throw new IllegalArgumentException();
+                }
+            } catch (IllegalArgumentException error) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTPS Android download URL", error);
+            }
+        }
+        AndroidReleaseSettings saved = settings.save(new AndroidReleaseSettings(input.versionCode(), name, url));
         return toRelease(saved);
     }
 
@@ -55,7 +68,7 @@ public class AndroidReleaseController {
 
     private AndroidRelease toRelease(AndroidReleaseSettings saved) {
         return new AndroidRelease(saved.versionCode(), saved.versionName(),
-                Math.min(saved.versionCode(), defaultRelease.minimumVersionCode()));
+                Math.min(saved.versionCode(), defaultRelease.minimumVersionCode()), saved.downloadUrl());
     }
 
     @PostMapping("/api/admin/android-release/announce")
@@ -75,7 +88,7 @@ public class AndroidReleaseController {
         }
     }
 
-    public record ReleaseInput(int versionCode, String versionName) {}
+    public record ReleaseInput(int versionCode, String versionName, String downloadUrl) {}
 
-    public record AndroidRelease(int versionCode, String versionName, int minimumVersionCode) {}
+    public record AndroidRelease(int versionCode, String versionName, int minimumVersionCode, String downloadUrl) {}
 }
