@@ -28,9 +28,9 @@ public class AccountDeletionController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<Void> verify(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ProfileRequests.VerifyEmail input) {
-        auth.verifyAccountDeletion(UUID.fromString(jwt.getSubject()), input.challengeId(), input.code());
-        return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
+    public ResponseEntity<PublicAccountDeletionController.Receipt> verify(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ProfileRequests.VerifyEmail input) {
+        UUID receipt = auth.verifyAccountDeletion(UUID.fromString(jwt.getSubject()), input.challengeId(), input.code());
+        return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).body(new PublicAccountDeletionController.Receipt(receipt));
     }
 
     public record Challenge(UUID challengeId) {}

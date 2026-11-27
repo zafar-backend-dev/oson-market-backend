@@ -150,6 +150,7 @@ public class SecurityConfig {
                                 "/api/auth/sign-up", "/api/auth/sign-up/verify",
                                 "/api/auth/forgot-password", "/api/auth/reset-password",
                                 "/api/auth/google/exchange", "/api/auth/google/mobile/exchange", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/site/account-deletion/request", "/api/site/account-deletion/verify", "/api/site/account-deletion/status").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/*", "/api/categories/*/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/tree", "/api/catalog/products/*/images/*",
                                 "/api/catalog/brands/*/logo").permitAll()

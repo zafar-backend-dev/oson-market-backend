@@ -16,7 +16,7 @@ class ProductComment {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     Product product;
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     User author;
     @ManyToOne(fetch = FetchType.LAZY)
     ProductComment parent;

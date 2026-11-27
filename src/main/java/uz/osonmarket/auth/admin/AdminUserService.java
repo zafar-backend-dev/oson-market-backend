@@ -39,7 +39,7 @@ class AdminUserService {
     @Transactional
     public AdminUserView updateStatus(UUID id, Status status) {
         var user = users.findForUpdate(id).orElseThrow(this::notFound);
-        if (!Role.USER.name().equals(user.getRole())) {
+        if (!Role.USER.name().equals(user.getRole()) || "DELETION_PENDING".equals(user.getStatus())) {
             throw new AuthException(HttpStatus.FORBIDDEN, "admin.users.status.forbidden");
         }
         if (!status.name().equals(user.getStatus())) {

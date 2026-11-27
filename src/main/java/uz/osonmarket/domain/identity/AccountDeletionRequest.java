@@ -12,6 +12,13 @@ public class AccountDeletionRequest {
     @Id
     private UUID accountId;
     private Instant verifiedAt;
+    @jakarta.persistence.Column(unique = true)
+    private UUID receipt;
+
+    public UUID ensureReceipt() {
+        if (receipt == null) receipt = UUID.randomUUID();
+        return receipt;
+    }
 
     protected AccountDeletionRequest() {}
 

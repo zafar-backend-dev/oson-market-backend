@@ -23,6 +23,10 @@ interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UUID> {
     Page<CustomerOrder> findForAdmin(@Param("status") String status, @Param("number") String number, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from CustomerOrder o where o.user.id = :owner and o.paidAt is null and o.status in ('PENDING', 'NEW_UNPAID')")
+    java.util.List<CustomerOrder> findUnpaidForDeletion(@Param("owner") UUID owner);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from CustomerOrder o where o.id = :id")
     Optional<CustomerOrder> findForUpdate(@Param("id") UUID id);
 

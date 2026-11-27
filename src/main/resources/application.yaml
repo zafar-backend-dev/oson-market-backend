@@ -47,7 +47,7 @@ jwt:
 
 brevo:
   api-key: "${BREVO_API_KEY}"
-  sender-email: codebyzplatform@gmail.com
+  sender-email: ${BREVO_SENDER_EMAIL:codebyzplatform@10569913.brevosend.com}
   base-url: https://api.brevo.com/v3
 
 app:

@@ -152,7 +152,7 @@ public class ProductSocialService {
     }
 
     private static void requireAuthor(ProductComment comment, UUID actor) {
-        if (!actor.equals(comment.author.getId())) throw new AuthException(HttpStatus.FORBIDDEN, "auth.forbidden");
+        if (comment.author == null || !actor.equals(comment.author.getId())) throw new AuthException(HttpStatus.FORBIDDEN, "auth.forbidden");
     }
 
     private CommentView view(ProductComment comment, UUID viewer) {

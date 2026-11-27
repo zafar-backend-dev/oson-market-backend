@@ -169,6 +169,14 @@ class OrderSocket {
         }
     }
 
+    @org.springframework.transaction.event.TransactionalEventListener
+    public void accountRemoved(uz.osonmarket.profile.AccountRemoved event) {
+        UUID accountId = event.accountId();
+        clients.forEach((session, client) -> {
+            if (accountId.equals(client.owner())) close(session);
+        });
+    }
+
     private void close(Session session) {
         clients.remove(session);
         try {

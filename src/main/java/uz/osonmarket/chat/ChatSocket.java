@@ -296,6 +296,14 @@ class ChatSocket {
         }
     }
 
+    @org.springframework.transaction.event.TransactionalEventListener
+    public void accountRemoved(uz.osonmarket.profile.AccountRemoved event) {
+        UUID accountId = event.accountId();
+        clients.forEach((session, client) -> {
+            if (client.actor() != null && accountId.equals(client.actor().id())) close(session);
+        });
+    }
+
     private void close(Session session) {
         clients.remove(session);
         stopActivity(session);

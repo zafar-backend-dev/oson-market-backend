@@ -18,6 +18,7 @@ import uz.osonmarket.branch.BranchAdminController.Location;
 
 @Service
 public class OrderOperationsService {
+    private final jakarta.persistence.EntityManager em;
     private final CustomerOrderRepository orders;
     private final OrderNotificationRepository notifications;
     private final MessageSource messages;
@@ -28,7 +29,8 @@ public class OrderOperationsService {
 
     OrderOperationsService(CustomerOrderRepository orders, OrderNotificationRepository notifications,
                            MessageSource messages, OrderStatusHistoryRepository history, BranchService branches,
-                           OrderStatusEmailRepository emails, ApplicationEventPublisher events) {
+                           OrderStatusEmailRepository emails, ApplicationEventPublisher events, jakarta.persistence.EntityManager em) {
+        this.em = em;
         this.orders = orders;
         this.notifications = notifications;
         this.messages = messages;
@@ -73,6 +75,18 @@ public class OrderOperationsService {
         }
         recordStatus(order, target, actorId, reason);
         return detail(order, locale);
+    }
+
+    @Transactional
+    public void cancelUnpaidForDeletion(UUID owner) {
+        boolean hasPayments = Boolean.TRUE.equals((Boolean) em.createNativeQuery("select to_regclass('payments') is not null").getSingleResult());
+        for (var order : orders.findUnpaidForDeletion(owner)) {
+            if (hasPayments && Boolean.TRUE.equals((Boolean) em.createNativeQuery("""
+                    SELECT EXISTS (SELECT 1 FROM payments WHERE order_id = :id
+                      AND status NOT IN ('FAILED', 'CANCELLED', 'REFUNDED'))
+                    """).setParameter("id", order.id).getSingleResult())) continue;
+            recordStatus(order, OrderStatus.CANCELLED, null, "Account deletion requested");
+        }
     }
 
     void recordStatus(CustomerOrder order, OrderStatus target, UUID actorId, String reason) {

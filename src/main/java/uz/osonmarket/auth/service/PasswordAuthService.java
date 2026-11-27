@@ -28,7 +28,12 @@ public class PasswordAuthService {
     private static final String RESET = "reset";
     private static final String CHANGE_EMAIL = "change-email";
     private static final String DELETE_ACCOUNT = "delete-account";
+    private static final String PUBLIC_DELETE = "public-delete-account";
     private final EntityManager em;
+    private final org.springframework.jdbc.core.JdbcTemplate db;
+    private final org.springframework.context.ApplicationEventPublisher events;
+    private final uz.osonmarket.order.OrderOperationsService orderOperations;
+    private final uz.osonmarket.auth.mail.DeletionCodeDelivery deletionDelivery;
     private final UserRepository users;
     private final AccountProfiles profiles;
     private final ChallengeRepository challenges;
@@ -43,7 +48,14 @@ public class PasswordAuthService {
 
     public PasswordAuthService(UserRepository users, AccountProfiles profiles, ChallengeRepository challenges,
                                AuthLocks locks, CredentialRevocation credentials, BrevoMailer mail, PasswordEncoder passwords,
-                               AuthProperties settings, SessionTokens tokens, EntityManager em) {
+                               AuthProperties settings, SessionTokens tokens, EntityManager em,
+                               uz.osonmarket.auth.mail.DeletionCodeDelivery deletionDelivery,
+                               org.springframework.jdbc.core.JdbcTemplate db, org.springframework.context.ApplicationEventPublisher events,
+                               uz.osonmarket.order.OrderOperationsService orderOperations) {
+        this.db = db;
+        this.events = events;
+        this.orderOperations = orderOperations;
+        this.deletionDelivery = deletionDelivery;
         this.em = em;
         this.users = users;
         this.profiles = profiles;
@@ -166,14 +178,42 @@ public class PasswordAuthService {
     }
 
     @Transactional(noRollbackFor = AuthException.class)
-    public void verifyAccountDeletion(UUID userId, UUID id, String code) {
-        AuthVerificationCode challenge = verify(id, code, DELETE_ACCOUNT, userId);
-        User user = currentUser(challenge);
-        if (!"USER".equals(user.getRole())) throw unauthorized();
-        if (em.find(AccountDeletionRequest.class, userId) == null) {
-            em.persist(new AccountDeletionRequest(userId, Instant.now()));
+    public UUID verifyAccountDeletion(UUID userId, UUID id, String code) {
+        return queueDeletion(verify(id, code, DELETE_ACCOUNT, userId));
+    }
+
+    @Transactional
+    public UUID requestPublicAccountDeletion(String rawEmail, Locale locale) {
+        String email = normalize(rawEmail);
+        locks.lock("public-account-deletion:rate");
+        long recent = em.createQuery("select count(c) from AuthVerificationCode c where c.purpose = :purpose and c.issuedAt > :since", Long.class)
+                .setParameter("purpose", PUBLIC_DELETE).setParameter("since", Instant.now().minusSeconds(60)).getSingleResult();
+        if (recent >= 30) throw AuthException.cooldown(60);
+        User candidate = users.findByEmail(email).orElse(null);
+        User owner = active(candidate) && "USER".equals(candidate.getRole()) ? candidate : null;
+        return issue(email, PUBLIC_DELETE, owner, null, locale);
+    }
+
+    @Transactional(noRollbackFor = AuthException.class)
+    public UUID verifyPublicAccountDeletion(UUID id, String code) {
+        return queueDeletion(verify(id, code, PUBLIC_DELETE));
+    }
+
+    private UUID queueDeletion(AuthVerificationCode challenge) {
+        User owner = currentUser(challenge);
+        if (!"USER".equals(owner.getRole())) throw invalidCode();
+        var request = em.find(AccountDeletionRequest.class, owner.getId());
+        if (request == null) {
+            request = new AccountDeletionRequest(owner.getId(), Instant.now());
+            em.persist(request);
         }
+        owner.setStatus("DELETION_PENDING");
+        credentials.revoke(owner);
+        orderOperations.cancelUnpaidForDeletion(owner.getId());
+        db.update("DELETE FROM order_push_devices WHERE user_id = ?", owner.getId());
+        events.publishEvent(new uz.osonmarket.profile.AccountRemoved(owner.getId()));
         consume(challenge);
+        return request.ensureReceipt();
     }
 
     private AuthException unauthorized() {
@@ -183,8 +223,8 @@ public class PasswordAuthService {
     private UUID issue(String email, String purpose, User user, PendingRegistration registration, Locale locale) {
         locks.lock("challenge:" + purpose + ":" + email);
         Instant now = Instant.now();
-        long resendSeconds = DELETE_ACCOUNT.equals(purpose) ? 60 : settings.resendSeconds();
-        long ttlSeconds = DELETE_ACCOUNT.equals(purpose) ? 300 : settings.codeTtlSeconds();
+        long resendSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose)) ? 60 : settings.resendSeconds();
+        long ttlSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose)) ? 300 : settings.codeTtlSeconds();
         AuthVerificationCode prior = challenges.findFirstByEmailAndPurposeAndIssuedAtIsNotNullOrderByIssuedAtDesc(email, purpose)
                 .orElse(null);
         if (prior != null) {
@@ -218,7 +258,9 @@ public class PasswordAuthService {
             challenge.setCredentialVersion(user.getCredentialVersion());
         }
         challenges.saveAndFlush(challenge);
-        if (!RESET.equals(purpose) || user != null) {
+        if (PUBLIC_DELETE.equals(purpose)) {
+            if (user != null) deletionDelivery.afterCommit(email, code, locale);
+        } else if (!RESET.equals(purpose) || user != null) {
             mail.sendCode(email, purpose, code, ttlSeconds, locale);
         }
         return challenge.getId();
