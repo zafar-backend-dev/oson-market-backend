@@ -160,7 +160,7 @@ public class SecurityConfig {
                                 "/api/catalog/products/*/comments/*", "/api/catalog/products/*/comments/*/replies",
                                 "/api/catalog/products/*/comments/*/like").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/branches", "/api/branches/*/image").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/site/logo", "/api/site/about", "/api/site/android-release", "/api/site/advertisements", "/api/site/advertisements/*/media").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/site/legal/*", "/api/site/logo", "/api/site/about", "/api/site/android-release", "/api/site/advertisements", "/api/site/advertisements/*/media").permitAll()
                         .requestMatchers("/api/admin/**").access((authentication, context) -> {
                             boolean admin = authentication.get() instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken token
                                     && users.findById(UUID.fromString(token.getName()))
@@ -169,7 +169,7 @@ public class SecurityConfig {
                         })
                         .requestMatchers("/api/orders", "/api/orders/**",
                                 "/api/advertisement-notifications", "/api/advertisement-notifications/**").authenticated()
-                        .requestMatchers("/api/profile", "/api/profile/**", "/api/mobile/chat/**").authenticated()
+                        .requestMatchers("/api/profile", "/api/profile/**", "/api/users/delete-account/**", "/api/mobile/chat/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((req, res, ex) -> unauthorized(res, locales.resolveLocale(req)))

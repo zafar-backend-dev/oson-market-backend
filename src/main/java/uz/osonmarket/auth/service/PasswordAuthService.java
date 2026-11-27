@@ -1,5 +1,6 @@
 package uz.osonmarket.auth.service;
 
+import jakarta.persistence.EntityManager;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -16,6 +17,7 @@ import uz.osonmarket.auth.api.AuthMessages;
 import uz.osonmarket.auth.config.AuthProperties;
 import uz.osonmarket.auth.mail.BrevoMailer;
 import uz.osonmarket.auth.persistence.*;
+import uz.osonmarket.domain.identity.AccountDeletionRequest;
 import uz.osonmarket.domain.identity.AuthVerificationCode;
 import uz.osonmarket.domain.identity.User;
 
@@ -25,6 +27,8 @@ public class PasswordAuthService {
     private static final String SIGN_UP = "sign-up";
     private static final String RESET = "reset";
     private static final String CHANGE_EMAIL = "change-email";
+    private static final String DELETE_ACCOUNT = "delete-account";
+    private final EntityManager em;
     private final UserRepository users;
     private final AccountProfiles profiles;
     private final ChallengeRepository challenges;
@@ -39,7 +43,8 @@ public class PasswordAuthService {
 
     public PasswordAuthService(UserRepository users, AccountProfiles profiles, ChallengeRepository challenges,
                                AuthLocks locks, CredentialRevocation credentials, BrevoMailer mail, PasswordEncoder passwords,
-                               AuthProperties settings, SessionTokens tokens) {
+                               AuthProperties settings, SessionTokens tokens, EntityManager em) {
+        this.em = em;
         this.users = users;
         this.profiles = profiles;
         this.challenges = challenges;
@@ -150,6 +155,24 @@ public class PasswordAuthService {
         user.setEmail(challenge.getEmail());
         user.setEmailVerifiedAt(now);
         credentials.revoke(user);
+        consume(challenge);
+    }
+
+    @Transactional
+    public UUID requestAccountDeletion(UUID userId, Locale locale) {
+        User user = users.findById(userId).orElseThrow(this::unauthorized);
+        if (!active(user) || !"USER".equals(user.getRole())) throw unauthorized();
+        return issue(user.getEmail(), DELETE_ACCOUNT, user, null, locale);
+    }
+
+    @Transactional(noRollbackFor = AuthException.class)
+    public void verifyAccountDeletion(UUID userId, UUID id, String code) {
+        AuthVerificationCode challenge = verify(id, code, DELETE_ACCOUNT, userId);
+        User user = currentUser(challenge);
+        if (!"USER".equals(user.getRole())) throw unauthorized();
+        if (em.find(AccountDeletionRequest.class, userId) == null) {
+            em.persist(new AccountDeletionRequest(userId, Instant.now()));
+        }
         consume(challenge);
     }
 
