@@ -4,17 +4,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import uz.osonmarket.auth.api.AuthException;
 import uz.osonmarket.auth.api.AuthMessages;
 
 @Component
 public class BrevoMailer {
+    private static final Logger log = LoggerFactory.getLogger(BrevoMailer.class);
     private final RestClient client;
     private final String sender;
     private final AuthMessages messages;
@@ -43,7 +47,12 @@ public class BrevoMailer {
                     "textContent", messages.text("mail.body", locale, code, ttlSeconds),
                     "htmlContent", authTemplate.render(purpose, code, ttlSeconds, locale)
             )).retrieve().toBodilessEntity();
-        } catch (RestClientException ignored) {
+        } catch (RestClientException failure) {
+            if (failure instanceof RestClientResponseException response) {
+                log.warn("Brevo verification email rejected: purpose={}, status={}", purpose, response.getStatusCode().value());
+            } else {
+                log.warn("Brevo verification email failed: purpose={}, error={}", purpose, failure.getClass().getSimpleName());
+            }
             throw new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "mail.unavailable");
         }
     }
