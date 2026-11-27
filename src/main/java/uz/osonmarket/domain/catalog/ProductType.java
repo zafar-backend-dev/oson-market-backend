@@ -31,6 +31,12 @@ public class ProductType {
     @Column(nullable = false, length = 100, unique = true)
     private String sku;
 
+    @Column(length = 150)
+    private String titleUz;
+
+    @Column(length = 150)
+    private String titleRu;
+
     @Column(length = 100, unique = true)
     private String barcode;
 
@@ -74,6 +80,23 @@ public class ProductType {
 
     public void setSku(String sku) {
         this.sku = sku;
+    }
+
+    public String getTitleUz() { return titleUz; }
+
+    public void setTitleUz(String title) {
+        titleUz = title == null || title.isBlank() ? null : title.strip();
+    }
+
+    public String getTitleRu() { return titleRu; }
+
+    public void setTitleRu(String title) {
+        titleRu = title == null || title.isBlank() ? null : title.strip();
+    }
+
+    public String localizedTitle(String language) {
+        String preferred = "ru".equals(language) ? titleRu : titleUz;
+        return preferred != null ? preferred : ("ru".equals(language) ? titleUz : titleRu);
     }
 
     public String getBarcode() {

@@ -12,7 +12,7 @@ public record OrderView(UUID id, String orderNumber, String status, String curre
                         BigDecimal latitude, BigDecimal longitude, BigDecimal distanceKm, BigDecimal pricePerKm,
                         String cancellationReason, Instant paidAt, boolean canCancel, boolean canRate,
                         Integer serviceRating, String serviceReview, Instant ratedAt) {
-    public record Item(UUID variantId, String sku, String title, int quantity,
+    public record Item(UUID variantId, String sku, String title, String variantTitle, int quantity,
                        BigDecimal unitPrice, BigDecimal discountAmount, BigDecimal lineTotal) {
     }
 }

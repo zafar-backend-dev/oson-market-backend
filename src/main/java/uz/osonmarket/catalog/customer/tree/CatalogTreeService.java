@@ -41,7 +41,7 @@ public class CatalogTreeService {
                 where p.status in ('ACTIVE', 'PUBLISHED') order by p.slug, p.id
                 """, Product.class).getResultList();
         var texts = translations("ProductTranslation", "product", ProductTranslation.class, language);
-        var typeViews = variants();
+        var typeViews = variants(language);
         for (var product : products) {
             UUID id = product.getId();
             var view = productView(product, texts.get(id), typeViews.getOrDefault(id, List.of()));
@@ -110,7 +110,7 @@ public class CatalogTreeService {
                 product.getProductKind(), product.getWarrantyMonths(), variants);
     }
 
-    private Map<UUID, List<CatalogTree.Variant>> variants() {
+    private Map<UUID, List<CatalogTree.Variant>> variants(String language) {
         var currentPrices = prices.publicPrices();
         var rows = em.createQuery("""
                 select distinct v from ProductType v join fetch v.product p
@@ -127,7 +127,7 @@ public class CatalogTreeService {
                     .map(image -> new CatalogTree.Picture(image.getId(), imageBase + image.getId(),
                             image.getSortOrder(), Boolean.TRUE.equals(image.getPrimaryImage()))).toList();
             result.computeIfAbsent(productId, ignored -> new ArrayList<>()).add(new CatalogTree.Variant(
-                    variant.getId(), variant.getSku(), variant.getWeightGrams(), variant.getLengthMm(),
+                    variant.getId(), variant.getSku(), variant.localizedTitle(language), variant.getWeightGrams(), variant.getLengthMm(),
                     variant.getWidthMm(), variant.getHeightMm(), Boolean.TRUE.equals(variant.getDefaultType()), pictures,
                     currentPrices.get(variant.getId())));
         }

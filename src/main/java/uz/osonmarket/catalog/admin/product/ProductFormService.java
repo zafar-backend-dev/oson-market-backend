@@ -203,6 +203,8 @@ public class ProductFormService {
     private void applyVariant(Product product, ProductType variant, ProductForm.Variant input) {
         variant.setProduct(product);
         variant.setSku(input.sku().strip());
+        if (input.titleUz() != null) variant.setTitleUz(input.titleUz());
+        if (input.titleRu() != null) variant.setTitleRu(input.titleRu());
         variant.setBarcode(input.barcode() == null || input.barcode().isBlank() ? null : input.barcode().strip());
         variant.setStatus(input.status());
         variant.setWeightGrams(input.weightGrams());
@@ -222,7 +224,7 @@ public class ProductFormService {
         var images = pictures.findByProductTypeIdOrderBySortOrderAscIdAsc(variant.getId()).stream()
                 .map(image -> new ProductDetail.Picture(image.getId(), media.isStored(image.getMedia())
                         ? base + image.getId() : null, image.getSortOrder(), image.getPrimaryImage())).toList();
-        return new ProductDetail.Variant(variant.getId(), variant.getSku(), variant.getBarcode(), variant.getStatus(),
+        return new ProductDetail.Variant(variant.getId(), variant.getSku(), variant.getTitleUz(), variant.getTitleRu(), variant.getBarcode(), variant.getStatus(),
                 variant.getWeightGrams(), variant.getLengthMm(), variant.getWidthMm(), variant.getHeightMm(),
                 variant.getDefaultType(), images, prices.current(variant.getId()));
     }

@@ -41,6 +41,8 @@ public class ProductTypeAdminService {
         ProductType entity = id == null ? new ProductType() : persistence.require(ProductType.class, id);
         entity.setProduct(persistence.require(Product.class, input.productId()));
         entity.setSku(input.sku().strip());
+        if (input.titleUz() != null) entity.setTitleUz(input.titleUz());
+        if (input.titleRu() != null) entity.setTitleRu(input.titleRu());
         entity.setBarcode(input.barcode() == null || input.barcode().isBlank() ? null : input.barcode().strip());
         entity.setStatus(input.status());
         entity.setWeightGrams(input.weightGrams());
@@ -77,7 +79,7 @@ public class ProductTypeAdminService {
     }
 
     private Entry<TypeInput> productTypeView(ProductType entity) {
-        return new Entry<>(entity.getId(), new TypeInput(persistence.id(entity.getProduct()), entity.getSku(), entity.getBarcode(), entity.getStatus(),
+        return new Entry<>(entity.getId(), new TypeInput(persistence.id(entity.getProduct()), entity.getSku(), entity.getTitleUz(), entity.getTitleRu(), entity.getBarcode(), entity.getStatus(),
                 entity.getWeightGrams(), entity.getLengthMm(), entity.getWidthMm(), entity.getHeightMm(), entity.getDefaultType()));
     }
 }

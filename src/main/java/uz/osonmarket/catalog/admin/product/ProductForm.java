@@ -9,6 +9,7 @@ import java.util.UUID;
 public record ProductForm(@NotNull @Valid ProductInput product,
                           @NotEmpty @Size(max = 100) List<@NotNull @Valid Variant> variants) {
     public record Variant(UUID id, @NotBlank @Size(max = 100) String sku,
+                          @Size(max = 150) String titleUz, @Size(max = 150) String titleRu,
                           @Size(max = 100) String barcode, @Size(max = 32) String status,
                           @Min(0) Integer weightGrams, @Min(0) Integer lengthMm,
                           @Min(0) Integer widthMm, @Min(0) Integer heightMm,

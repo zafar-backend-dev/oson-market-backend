@@ -20,6 +20,10 @@ class CustomerOrderItem {
     String skuSnapshot;
     @Column(length = 255)
     String titleUzSnapshot;
+    @Column(length = 150)
+    String variantTitleUzSnapshot;
+    @Column(length = 150)
+    String variantTitleRuSnapshot;
     @Column(length = 255)
     String titleRuSnapshot;
     Integer quantity;

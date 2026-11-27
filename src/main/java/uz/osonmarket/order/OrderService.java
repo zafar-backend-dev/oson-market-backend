@@ -102,6 +102,8 @@ public class OrderService {
             item.order = order;
             item.variant = variant;
             item.skuSnapshot = variant.getSku();
+            item.variantTitleUzSnapshot = variant.localizedTitle("uz");
+            item.variantTitleRuSnapshot = variant.localizedTitle("ru");
             item.titleUzSnapshot = title(variant, "uz");
             item.titleRuSnapshot = title(variant, "ru");
             item.quantity = inputItem.quantity();
@@ -219,6 +221,7 @@ public class OrderService {
                 order.placedAt, order.subtotal, order.discountTotal, order.shippingTotal, order.grandTotal,
                 order.items.stream().map(item -> new OrderView.Item(item.variant == null ? null : item.variant.getId(),
                         item.skuSnapshot, "ru".equals(language) ? item.titleRuSnapshot : item.titleUzSnapshot,
+                        "ru".equals(language) ? item.variantTitleRuSnapshot : item.variantTitleUzSnapshot,
                         item.quantity, item.unitPrice, item.discountAmount, item.lineTotal)).toList(),
                 order.fulfillmentMethod, order.fulfillmentBranchId, order.deliveryAddress, order.deliveryLatitude,
                 order.deliveryLongitude, order.deliveryDistanceKm, order.deliveryPricePerKm, order.cancellationReason,

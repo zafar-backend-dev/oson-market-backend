@@ -15,7 +15,7 @@ public record CatalogTree(List<Node> categories, List<ProductItem> uncategorized
 
     public record BrandItem(UUID id, String name, String slug, String logoUrl) {}
 
-    public record Variant(UUID id, String sku, Integer weightGrams, Integer lengthMm, Integer widthMm,
+    public record Variant(UUID id, String sku, String title, Integer weightGrams, Integer lengthMm, Integer widthMm,
                           Integer heightMm, boolean defaultType, List<Picture> images, Price price) {}
 
     public record Picture(UUID id, String imageUrl, Integer sortOrder, boolean primaryImage) {}
