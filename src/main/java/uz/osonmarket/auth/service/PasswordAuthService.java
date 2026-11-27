@@ -183,10 +183,12 @@ public class PasswordAuthService {
     private UUID issue(String email, String purpose, User user, PendingRegistration registration, Locale locale) {
         locks.lock("challenge:" + purpose + ":" + email);
         Instant now = Instant.now();
+        long resendSeconds = DELETE_ACCOUNT.equals(purpose) ? 60 : settings.resendSeconds();
+        long ttlSeconds = DELETE_ACCOUNT.equals(purpose) ? 300 : settings.codeTtlSeconds();
         AuthVerificationCode prior = challenges.findFirstByEmailAndPurposeAndIssuedAtIsNotNullOrderByIssuedAtDesc(email, purpose)
                 .orElse(null);
         if (prior != null) {
-            Instant retryAt = prior.getIssuedAt().plusSeconds(settings.resendSeconds());
+            Instant retryAt = prior.getIssuedAt().plusSeconds(resendSeconds);
             if (retryAt.isAfter(now)) {
                 if (RESET.equals(purpose)) {
                     return prior.getId();
@@ -205,7 +207,7 @@ public class PasswordAuthService {
         challenge.setCodeHash(passwords.encode(code));
         challenge.setAttempts(0);
         challenge.setIssuedAt(now);
-        challenge.setExpiresAt(now.plusSeconds(settings.codeTtlSeconds()));
+        challenge.setExpiresAt(now.plusSeconds(ttlSeconds));
         if (registration != null) {
             challenge.setPendingUsername(registration.username());
             challenge.setPendingPasswordHash(registration.passwordHash());
@@ -217,7 +219,7 @@ public class PasswordAuthService {
         }
         challenges.saveAndFlush(challenge);
         if (!RESET.equals(purpose) || user != null) {
-            mail.sendCode(email, purpose, code, settings.codeTtlSeconds(), locale);
+            mail.sendCode(email, purpose, code, ttlSeconds, locale);
         }
         return challenge.getId();
     }

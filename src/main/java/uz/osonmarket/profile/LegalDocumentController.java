@@ -53,7 +53,7 @@ public class LegalDocumentController {
     }
 
     private static void requireKind(String kind) {
-        if (!"privacy".equals(kind) && !"terms".equals(kind)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (!"privacy".equals(kind) && !"terms".equals(kind) && !"delete".equals(kind)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
     public record Input(@NotBlank @Pattern(regexp = "[A-Za-z0-9._-]{1,40}") String version,
