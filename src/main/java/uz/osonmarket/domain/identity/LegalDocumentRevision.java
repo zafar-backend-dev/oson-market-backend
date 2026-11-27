@@ -20,16 +20,24 @@ public class LegalDocumentRevision {
     private String contentRu;
     @Column(nullable = false)
     private Instant publishedAt;
+    private UUID publishedBy;
+    private Boolean active;
 
     protected LegalDocumentRevision() {}
 
-    public LegalDocumentRevision(String kind, String version, String contentUz, String contentRu) {
+    public LegalDocumentRevision(String kind, String version, String contentUz, String contentRu, UUID publishedBy) {
+        this.publishedBy = publishedBy;
+        this.active = true;
         this.kind = kind;
         this.version = version;
         this.contentUz = contentUz;
         this.contentRu = contentRu;
         this.publishedAt = Instant.now();
     }
+
+    public UUID getId() { return id; }
+    public UUID getPublishedBy() { return publishedBy; }
+    public boolean isActive() { return Boolean.TRUE.equals(active); }
 
     public String getKind() { return kind; }
     public String getVersion() { return version; }

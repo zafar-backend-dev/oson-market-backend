@@ -45,8 +45,8 @@ public class AdminAccountDeletionController {
         var requests = db.query("""
                 SELECT account_id, verified_at, status FROM account_deletion_requests
                 ORDER BY verified_at DESC, account_id LIMIT 50 OFFSET ?
-                """, (rs, row) -> new View(rs.getObject(1, UUID.class), rs.getTimestamp(2).toInstant(),
-                rs.getString(3)), page * 50);
+                """, (rs, row) -> new View(rs.getObject(1, UUID.class), rs.getObject(2, java.time.OffsetDateTime.class) == null ? null : rs.getObject(2, java.time.OffsetDateTime.class).toInstant(),
+                java.util.Objects.requireNonNullElse(rs.getString(3), "PENDING")), page * 50);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(requests);
     }
     public record View(UUID accountId, Instant verifiedAt, String status) {}
