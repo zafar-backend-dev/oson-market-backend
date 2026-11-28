@@ -59,6 +59,10 @@ public class OrderService {
         }
 
         locks.lock("order:customer:" + userId);
+        User customer = em.find(User.class, userId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (customer == null || !"ACTIVE".equals(customer.getStatus())) {
+            throw failure(HttpStatus.UNAUTHORIZED, "auth.unauthorized");
+        }
         var fulfillment = input.fulfillment();
         String fulfillmentKey = fulfillmentKey(fulfillment);
         var prior = orders.findByUserIdAndRequestId(userId, input.requestId()).orElse(null);
@@ -76,7 +80,7 @@ public class OrderService {
         if (fulfillment == null) {
             throw failure(HttpStatus.BAD_REQUEST, "order.fulfillment.required");
         }
-        order.user = em.getReference(User.class, userId);
+        order.user = customer;
         order.requestId = input.requestId();
         order.requestedFulfillment = fulfillmentKey;
         order.orderNumber = "OM-" + UUID.randomUUID();

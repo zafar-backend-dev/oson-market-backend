@@ -115,7 +115,9 @@ class ChatService implements ApplicationRunner {
         if (media == null && (body == null || body.isEmpty() || body.length() > 4000 || body.indexOf(0) >= 0)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Text must contain 1 to 4000 characters");
         }
-        if (users.findForUpdate(owner).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (users.findForUpdate(owner).filter(user -> "ACTIVE".equals(user.getStatus())).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
         if (replyTo != null && !Boolean.TRUE.equals(jdbc.queryForObject("""
                 SELECT EXISTS (SELECT 1 FROM mobile_chat_messages WHERE owner_id = ? AND id = ?)
                 """, Boolean.class, owner, replyTo))) {

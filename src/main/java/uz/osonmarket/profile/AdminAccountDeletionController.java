@@ -18,21 +18,22 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAccountDeletionController {
     private final JdbcTemplate db;
     private final AccountDeletionService deletion;
+    private final AccountDeletionWorker worker;
 
-    public AdminAccountDeletionController(JdbcTemplate db, AccountDeletionService deletion) {
+    public AdminAccountDeletionController(JdbcTemplate db, AccountDeletionService deletion, AccountDeletionWorker worker) {
         this.db = db;
         this.deletion = deletion;
+        this.worker = worker;
     }
 
     @PostMapping("/{accountId}/complete")
     public ResponseEntity<Void> complete(@PathVariable UUID accountId, @RequestBody Completion input) {
         try {
-            deletion.complete(accountId, input.obligationsSettled());
+            return worker.process(accountId) ? ResponseEntity.noContent().build() : ResponseEntity.accepted().build();
         } catch (DataAccessException failure) {
-            db.update("UPDATE account_deletion_requests SET status = 'FAILED' WHERE account_id = ? AND status <> 'COMPLETED'", accountId);
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account deletion could not be completed");
+            deletion.retryLater(accountId);
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
         }
-        return ResponseEntity.noContent().build();
     }
 
     public record Completion(boolean obligationsSettled) {}

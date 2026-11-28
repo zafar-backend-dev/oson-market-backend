@@ -26,6 +26,7 @@ public class LegalSchemaInitializer implements ApplicationRunner {
         locks.lock("legal-schema-initializer");
         db.execute((ConnectionCallback<Void>) connection -> {
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261201_legal_publication.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261202_account_erasure.sql"));
             return null;
         });
     }

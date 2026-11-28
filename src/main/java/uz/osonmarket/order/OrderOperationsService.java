@@ -79,14 +79,27 @@ public class OrderOperationsService {
 
     @Transactional
     public void cancelUnpaidForDeletion(UUID owner) {
-        boolean hasPayments = Boolean.TRUE.equals((Boolean) em.createNativeQuery("select to_regclass('payments') is not null").getSingleResult());
         for (var order : orders.findUnpaidForDeletion(owner)) {
-            if (hasPayments && Boolean.TRUE.equals((Boolean) em.createNativeQuery("""
-                    SELECT EXISTS (SELECT 1 FROM payments WHERE order_id = :id
-                      AND status NOT IN ('FAILED', 'CANCELLED', 'REFUNDED'))
-                    """).setParameter("id", order.id).getSingleResult())) continue;
-            recordStatus(order, OrderStatus.CANCELLED, null, "Account deletion requested");
+            cancelIfUnpaid(order);
         }
+    }
+
+    @Transactional
+    public void cancelDetachedUnpaidForDeletion(UUID orderId) {
+        orders.findForUpdate(orderId).filter(order -> order.user == null
+                && order.paidAt == null && List.of("PENDING", "NEW_UNPAID").contains(order.status))
+                .ifPresent(this::cancelIfUnpaid);
+    }
+
+    private void cancelIfUnpaid(CustomerOrder order) {
+        boolean hasPayments = Boolean.TRUE.equals(em.createNativeQuery(
+                "SELECT to_regclass('payments') IS NOT NULL").getSingleResult());
+        if (hasPayments && Boolean.TRUE.equals(em.createNativeQuery("""
+                SELECT EXISTS (SELECT 1 FROM payments WHERE order_id = :id
+                    AND COALESCE(upper(status::text), '') NOT IN ('FAILED', 'CANCELLED'))
+                """).setParameter("id", order.id).getSingleResult())) return;
+        recordStatus(order, OrderStatus.CANCELLED, null, "Account deletion requested");
+        em.flush();
     }
 
     void recordStatus(CustomerOrder order, OrderStatus target, UUID actorId, String reason) {
@@ -106,7 +119,9 @@ public class OrderOperationsService {
     }
 
     void notifyStatus(CustomerOrder order, OrderStatus target, String reason, Instant now) {
-        if (order.user != null) {
+        if (order.user == null) {
+            notifyOrderChanged(order);
+        } else {
             var notification = new OrderNotification();
             notification.userId = order.user.getId();
             notification.order = order;
