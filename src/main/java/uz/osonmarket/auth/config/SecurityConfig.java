@@ -68,7 +68,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecretKey key, UserRepository users) {
+    JwtDecoder jwtDecoder(SecretKey key, UserRepository users, uz.osonmarket.recovery.DeletionLedger ledger) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 new JwtTimestampValidator(Duration.ZERO), new JwtIssuerValidator(AccessTokens.ISSUER), token -> {
@@ -79,7 +79,7 @@ public class SecurityConfig {
                                 .filter(user -> "ACTIVE".equals(user.getStatus()) && user.getEmailVerifiedAt() != null
                                         && version != null && Objects.equals(user.getCredentialVersion(), version.intValue()))
                                 .isPresent();
-                        if (valid) {
+                        if (valid && !ledger.contains(userId)) {
                             return OAuth2TokenValidatorResult.success();
                         }
                     } catch (IllegalArgumentException | ClassCastException ignored) {

@@ -53,7 +53,7 @@ public class AuthErrorHandler {
     ResponseEntity<ErrorBody> conflict(DataIntegrityViolationException ex, jakarta.servlet.http.HttpServletRequest request, Locale locale) {
         String path = request.getServletPath();
         if (path.startsWith("/api/orders") || path.startsWith("/api/admin/orders")) {
-            log.warn("Order database conflict", ex);
+            log.warn("Order database conflict ({})", ex.getClass().getSimpleName());
             return error(HttpStatus.CONFLICT, "order.data.conflict", List.of(), locale);
         }
         return error(HttpStatus.CONFLICT, "auth.account.exists", List.of(), locale);

@@ -30,16 +30,19 @@ class ChatSocket {
     private final Map<Session, Activity> activities = new ConcurrentHashMap<>();
     private final ChatService chat;
     private final JwtDecoder decoder;
+    private final uz.osonmarket.recovery.RestoreGate restoreGate;
     private final ObjectMapper json;
     private final List<String> origins;
     private final List<String> webOrigins;
 
     ChatSocket(ChatService chat, JwtDecoder decoder, ObjectMapper json,
+               uz.osonmarket.recovery.RestoreGate restoreGate,
                @Value("${app.mobile-frontend-origins}") List<String> origins,
                @Value("${app.cors-origin}") String webOrigin,
                @Value("${app.local-frontend-origin}") String localOrigin) {
         this.chat = chat;
         this.decoder = decoder;
+        this.restoreGate = restoreGate;
         this.json = json;
         this.origins = origins;
         this.webOrigins = List.of(webOrigin, localOrigin);
@@ -88,6 +91,7 @@ class ChatSocket {
 
         @Override
         public void onOpen(Session session, EndpointConfig config) {
+            if (!restoreGate.isReady()) { close(session); return; }
             session.setMaxTextMessageBufferSize(32768);
             session.setMaxIdleTimeout(120_000);
             session.getUserProperties().put("org.apache.tomcat.websocket.BLOCKING_SEND_TIMEOUT", 3000L);
@@ -271,6 +275,9 @@ class ChatSocket {
         var now = Instant.now();
         clients.forEach((session, client) -> {
             if (!client.expires().isAfter(now)) close(session);
+            else if (client.token() != null) {
+                try { decoder.decode(client.token()); } catch (JwtException error) { close(session); }
+            }
         });
     }
 
@@ -297,18 +304,23 @@ class ChatSocket {
     }
 
     @org.springframework.transaction.event.TransactionalEventListener
+    @org.springframework.core.annotation.Order(0)
     public void accountRemoved(uz.osonmarket.profile.AccountRemoved event) {
         UUID accountId = event.accountId();
         clients.forEach((session, client) -> {
-            if (client.actor() != null && accountId.equals(client.actor().id())) close(session);
+            if (client.actor() != null && accountId.equals(client.actor().id())) close(session, "ACCOUNT_REMOVED");
         });
     }
 
     private void close(Session session) {
+        close(session, "Reconnect with a valid session");
+    }
+
+    private void close(Session session, String reason) {
         clients.remove(session);
         stopActivity(session);
         try {
-            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "Reconnect with a valid session"));
+            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, reason));
         } catch (IOException | IllegalStateException ignored) {
             // The connection may already be closed.
         }

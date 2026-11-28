@@ -92,6 +92,8 @@ public class OrderOperationsService {
     }
 
     private void cancelIfUnpaid(CustomerOrder order) {
+        if (Boolean.TRUE.equals(em.createNativeQuery("SELECT retention_hold FROM orders WHERE id = :id")
+                .setParameter("id", order.id).getSingleResult())) return;
         boolean hasPayments = Boolean.TRUE.equals(em.createNativeQuery(
                 "SELECT to_regclass('payments') IS NOT NULL").getSingleResult());
         if (hasPayments && Boolean.TRUE.equals(em.createNativeQuery("""

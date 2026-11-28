@@ -28,8 +28,25 @@ public class PasswordAuthService {
     private static final String RESET = "reset";
     private static final String CHANGE_EMAIL = "change-email";
     private static final String DELETE_ACCOUNT = "delete-account";
+    private static final String BACKUP_ADMIN = "backup-admin";
+
+    @Transactional
+    public UUID requestBackupAdminCode(UUID userId, Locale locale) {
+        User user = users.findById(userId).orElseThrow(this::unauthorized);
+        if (!active(user) || !"ADMIN".equals(user.getRole())) throw unauthorized();
+        return issue(user.getEmail(), BACKUP_ADMIN, user, null, locale);
+    }
+
+    @Transactional(noRollbackFor = AuthException.class)
+    public void verifyBackupAdminCode(UUID userId, UUID id, String code) {
+        AuthVerificationCode challenge = verify(id, code, BACKUP_ADMIN, userId);
+        if (!"ADMIN".equals(currentUser(challenge).getRole())) throw unauthorized();
+        consume(challenge);
+    }
+
     private static final String PUBLIC_DELETE = "public-delete-account";
     private final EntityManager em;
+    private final uz.osonmarket.recovery.DeletionLedger ledger;
     private final org.springframework.jdbc.core.JdbcTemplate db;
     private final org.springframework.context.ApplicationEventPublisher events;
     private final uz.osonmarket.order.OrderOperationsService orderOperations;
@@ -51,8 +68,10 @@ public class PasswordAuthService {
                                AuthProperties settings, SessionTokens tokens, EntityManager em,
                                uz.osonmarket.auth.mail.DeletionCodeDelivery deletionDelivery,
                                org.springframework.jdbc.core.JdbcTemplate db, org.springframework.context.ApplicationEventPublisher events,
-                               uz.osonmarket.order.OrderOperationsService orderOperations) {
+                               uz.osonmarket.order.OrderOperationsService orderOperations,
+                               uz.osonmarket.recovery.DeletionLedger ledger) {
         this.db = db;
+        this.ledger = ledger;
         this.events = events;
         this.orderOperations = orderOperations;
         this.deletionDelivery = deletionDelivery;
@@ -76,7 +95,7 @@ public class PasswordAuthService {
         User user = (identifier.contains("@") ? users.findByEmail(identifier) : users.findByUsername(identifier))
                 .orElse(null);
         boolean validPassword = passwords.matches(password, user == null ? dummyHash : user.getPasswordHash());
-        if (!validPassword || !active(user)) {
+        if (!validPassword || !active(user) || ledger.contains(user.getId())) {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "auth.credentials");
         }
         return issue(user.getEmail(), SIGN_IN, user, null, locale);
@@ -202,11 +221,13 @@ public class PasswordAuthService {
     private UUID queueDeletion(AuthVerificationCode challenge) {
         User owner = currentUser(challenge);
         if (!"USER".equals(owner.getRole())) throw invalidCode();
+        ledger.record(owner.getId());
         var request = em.find(AccountDeletionRequest.class, owner.getId());
         if (request == null) {
             request = new AccountDeletionRequest(owner.getId(), Instant.now());
             em.persist(request);
         }
+        db.update("INSERT INTO security_retention_events(event_type) VALUES ('ACCOUNT_ERASURE_CONFIRMED')");
         owner.setStatus("DELETION_PENDING");
         credentials.revoke(owner);
         orderOperations.cancelUnpaidForDeletion(owner.getId());
@@ -223,8 +244,8 @@ public class PasswordAuthService {
     private UUID issue(String email, String purpose, User user, PendingRegistration registration, Locale locale) {
         locks.lock("challenge:" + purpose + ":" + email);
         Instant now = Instant.now();
-        long resendSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose)) ? 60 : settings.resendSeconds();
-        long ttlSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose)) ? 300 : settings.codeTtlSeconds();
+        long resendSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose) || BACKUP_ADMIN.equals(purpose)) ? 60 : settings.resendSeconds();
+        long ttlSeconds = (DELETE_ACCOUNT.equals(purpose) || PUBLIC_DELETE.equals(purpose) || BACKUP_ADMIN.equals(purpose)) ? 300 : settings.codeTtlSeconds();
         AuthVerificationCode prior = challenges.findFirstByEmailAndPurposeAndIssuedAtIsNotNullOrderByIssuedAtDesc(email, purpose)
                 .orElse(null);
         if (prior != null) {

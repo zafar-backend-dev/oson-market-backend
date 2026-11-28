@@ -25,6 +25,11 @@ class OrderPushDevices {
 
     @Transactional
     public void register(UUID owner, String token, String language) {
+        var user = entities.find(uz.osonmarket.domain.identity.User.class, owner,
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (user == null || !"ACTIVE".equals(user.getStatus())) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
         locks.lock("order-push:" + token);
         var device = entities.find(OrderPushDevice.class, token);
         if (device == null) {
@@ -47,7 +52,7 @@ class OrderPushDevices {
 
     @Transactional(readOnly = true)
     public List<OrderPushDevice> find(UUID owner) {
-        return entities.createQuery("select d from OrderPushDevice d where d.userId = :owner", OrderPushDevice.class)
+        return entities.createQuery("select d from OrderPushDevice d where d.userId = :owner and exists (select u.id from User u where u.id = d.userId and u.status = 'ACTIVE')", OrderPushDevice.class)
                 .setParameter("owner", owner).getResultList();
     }
 }

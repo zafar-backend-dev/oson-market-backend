@@ -55,6 +55,11 @@ public class AccountDeletionService {
                 """, UUID.class, accountId);
         boolean completed = true;
         for (UUID orderId : orders) {
+            if (Boolean.TRUE.equals(db.queryForObject("SELECT retention_hold FROM orders WHERE id = ?",
+                    Boolean.class, orderId))) {
+                completed = false;
+                continue;
+            }
             orderOperations.cancelDetachedUnpaidForDeletion(orderId);
             boolean terminal = terminalOrder(orderId);
             if (terminal) removeDeliveryAddress(orderId);
@@ -118,10 +123,11 @@ public class AccountDeletionService {
                 """, accountId);
         db.update("DELETE FROM order_status_emails WHERE lower(recipient) = lower(?)", email);
         db.update("""
-                UPDATE orders SET user_id = NULL, request_id = NULL, requested_fulfillment = NULL, telegram_address = NULL,
+                UPDATE orders SET request_id = NULL, requested_fulfillment = NULL, telegram_address = NULL,
                     service_review = NULL, service_rating = NULL, rated_at = NULL, cancellation_reason = NULL
-                WHERE user_id = ?
+                WHERE user_id = ? AND NOT retention_hold
                 """, accountId);
+        db.update("UPDATE orders SET user_id = NULL WHERE user_id = ?", accountId);
         for (String table : List.of("product_likes", "advertisement_notification_reads", "order_notifications",
                 "order_push_devices", "user_devices", "refresh_tokens", "user_profiles")) {
             db.update("DELETE FROM " + table + " WHERE user_id = ?", accountId);
@@ -167,7 +173,11 @@ public class AccountDeletionService {
 
     private void eraseOrderContact(UUID orderId) {
         optional("order_returns", "UPDATE order_returns SET reason = NULL WHERE order_id = ?", orderId);
-        db.update("UPDATE orders SET phone = NULL, cancellation_reason = NULL WHERE id = ?", orderId);
+        db.update("""
+                UPDATE orders SET phone = NULL, cancellation_reason = NULL, request_id = NULL,
+                    requested_fulfillment = NULL, telegram_address = NULL, service_review = NULL,
+                    service_rating = NULL, rated_at = NULL WHERE id = ?
+                """, orderId);
     }
 
     private void removeDeliveryAddress(UUID orderId) {

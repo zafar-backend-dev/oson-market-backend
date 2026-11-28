@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.osonmarket.auth.persistence.AuthLocks;
 
 @Component
+@org.springframework.core.annotation.Order(0)
 public class LegalSchemaInitializer implements ApplicationRunner {
     private final JdbcTemplate db;
     private final AuthLocks locks;
@@ -27,6 +28,8 @@ public class LegalSchemaInitializer implements ApplicationRunner {
         db.execute((ConnectionCallback<Void>) connection -> {
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261201_legal_publication.sql"));
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261202_account_erasure.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261203_retention.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/manual/20261204_backup_admin.sql"));
             return null;
         });
     }

@@ -1,0 +1,21 @@
+[Unit]
+Description=Oson Market encrypted PostgreSQL backup
+[Service]
+Type=oneshot
+User=oson-backup
+Group=oson-backup
+UMask=0077
+StateDirectory=osonmarket-backup
+StateDirectoryMode=0700
+Environment=OSON_BACKUP_DIR=/var/lib/osonmarket-backup
+Environment=GNUPGHOME=/var/lib/osonmarket-backup/.gnupg
+Environment=OSON_BACKUP_PASSPHRASE=%d/backup-passphrase
+Environment=PGPASSFILE=%d/postgres-pass
+EnvironmentFile=/etc/osonmarket/backup.env
+LoadCredential=backup-passphrase:/etc/osonmarket/secrets/backup-passphrase
+LoadCredential=postgres-pass:/etc/osonmarket/secrets/backup.pgpass
+ExecStart=/bin/bash /opt/osonmarket/backup/backup.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

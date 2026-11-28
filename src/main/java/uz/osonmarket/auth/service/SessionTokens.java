@@ -22,15 +22,19 @@ public class SessionTokens {
     private final EntityManager em;
     private final AccessTokens access;
     private final long ttl;
+    private final uz.osonmarket.recovery.DeletionLedger ledger;
 
-    public SessionTokens(EntityManager em, AccessTokens access, @Value("${jwt.refresh-ttl-seconds}") long ttl) {
+    public SessionTokens(EntityManager em, AccessTokens access, @Value("${jwt.refresh-ttl-seconds}") long ttl,
+                         uz.osonmarket.recovery.DeletionLedger ledger) {
         this.em = em;
         this.access = access;
         this.ttl = ttl;
+        this.ledger = ledger;
     }
 
     @Transactional
     public AccessTokens.Token issue(User user) {
+        if (ledger.contains(user.getId())) throw new AuthException(HttpStatus.UNAUTHORIZED, "auth.session.expired");
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -53,7 +57,7 @@ public class SessionTokens {
                     """, RefreshToken.class)
                     .setParameter("hash", hash(secret)).setParameter("now", Instant.now())
                     .getResultList().stream().findFirst();
-            if (stored.isPresent()) {
+            if (stored.isPresent() && !ledger.contains(stored.get().getUser().getId())) {
                 return access.issue(stored.get().getUser());
             }
         }

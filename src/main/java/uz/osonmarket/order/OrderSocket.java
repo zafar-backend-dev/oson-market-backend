@@ -29,14 +29,17 @@ import uz.osonmarket.auth.persistence.UserRepository;
 class OrderSocket {
     private final Map<Session, Client> clients = new ConcurrentHashMap<>();
     private final JwtDecoder decoder;
+    private final uz.osonmarket.recovery.RestoreGate restoreGate;
     private final UserRepository users;
     private final ObjectMapper json;
     private final Set<String> allowedOrigins;
 
-    OrderSocket(JwtDecoder decoder, ObjectMapper json, UserRepository users, @Value("${app.cors-origin}") String origin,
+    OrderSocket(JwtDecoder decoder, ObjectMapper json, UserRepository users,
+                uz.osonmarket.recovery.RestoreGate restoreGate, @Value("${app.cors-origin}") String origin,
                 @Value("${app.local-frontend-origin}") String localOrigin,
                 @Value("${app.mobile-frontend-origins}") List<String> mobileOrigins) {
         this.decoder = decoder;
+        this.restoreGate = restoreGate;
         this.users = users;
         this.json = json;
         var origins = new LinkedHashSet<>(mobileOrigins);
@@ -75,10 +78,11 @@ class OrderSocket {
     public final class Connection extends Endpoint {
         @Override
         public void onOpen(Session session, EndpointConfig config) {
+            if (!restoreGate.isReady()) { close(session); return; }
             session.setMaxTextMessageBufferSize(8192);
             session.setMaxIdleTimeout(300_000);
             session.getAsyncRemote().setSendTimeout(5000);
-            clients.put(session, new Client(null, Instant.now().plusSeconds(10), false));
+            clients.put(session, new Client(null, null, Instant.now().plusSeconds(10), false));
             session.addMessageHandler(String.class, message -> authenticate(session, message));
         }
 
@@ -112,7 +116,7 @@ class OrderSocket {
             }
             UUID owner = UUID.fromString(jwt.getSubject());
             boolean admin = users.findById(owner).filter(user -> "ADMIN".equals(user.getRole())).isPresent();
-            var client = new Client(owner, jwt.getExpiresAt(), admin);
+            var client = new Client(owner, input.path("accessToken").asText(), jwt.getExpiresAt(), admin);
             if (clients.replace(session, pending, client)) {
                 send(session, "{\"type\":\"READY\"}");
             }
@@ -132,9 +136,9 @@ class OrderSocket {
         clients.forEach((session, client) -> {
             if (!client.expiresAt().isAfter(now)) return;
             if (event.owner().equals(client.owner())) {
-                send(session, message);
+                sendAuthenticated(session, client, message);
             } else if (client.admin()) {
-                send(session, adminUpdate);
+                sendAuthenticated(session, client, adminUpdate);
             }
         });
     }
@@ -146,7 +150,7 @@ class OrderSocket {
         clients.forEach((session, client) -> {
             if (client.expiresAt().isAfter(now)
                     && (client.admin() || (event.owner() != null && event.owner().equals(client.owner())))) {
-                send(session, update);
+                sendAuthenticated(session, client, update);
             }
         });
     }
@@ -156,7 +160,22 @@ class OrderSocket {
         Instant now = Instant.now();
         clients.forEach((session, client) -> {
             if (!client.expiresAt().isAfter(now)) close(session);
+            else if (client.token() != null) valid(session, client);
         });
+    }
+
+    private boolean valid(Session session, Client client) {
+        try {
+            decoder.decode(client.token());
+            return clients.get(session) == client;
+        } catch (JwtException error) {
+            close(session);
+            return false;
+        }
+    }
+
+    private void sendAuthenticated(Session session, Client client, String message) {
+        if (valid(session, client)) send(session, message);
     }
 
     private void send(Session session, String message) {
@@ -170,21 +189,26 @@ class OrderSocket {
     }
 
     @org.springframework.transaction.event.TransactionalEventListener
+    @org.springframework.core.annotation.Order(0)
     public void accountRemoved(uz.osonmarket.profile.AccountRemoved event) {
         UUID accountId = event.accountId();
         clients.forEach((session, client) -> {
-            if (accountId.equals(client.owner())) close(session);
+            if (accountId.equals(client.owner())) close(session, "ACCOUNT_REMOVED");
         });
     }
 
     private void close(Session session) {
+        close(session, "Reconnect with a valid session");
+    }
+
+    private void close(Session session, String reason) {
         clients.remove(session);
         try {
-            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "Reconnect with a valid session"));
+            session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, reason));
         } catch (IOException | IllegalStateException ignored) {
             // The transport may already be closed.
         }
     }
 
-    private record Client(UUID owner, Instant expiresAt, boolean admin) {}
+    private record Client(UUID owner, String token, Instant expiresAt, boolean admin) {}
 }

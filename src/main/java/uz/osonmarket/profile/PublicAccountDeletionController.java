@@ -18,10 +18,13 @@ import uz.osonmarket.auth.service.PasswordAuthService;
 public class PublicAccountDeletionController {
     private final PasswordAuthService auth;
     private final JdbcTemplate db;
+    private final boolean retentionEnabled;
 
-    public PublicAccountDeletionController(PasswordAuthService auth, JdbcTemplate db) {
+    public PublicAccountDeletionController(PasswordAuthService auth, JdbcTemplate db,
+            @org.springframework.beans.factory.annotation.Value("${app.retention.enabled:false}") boolean retentionEnabled) {
         this.auth = auth;
         this.db = db;
+        this.retentionEnabled = retentionEnabled;
     }
 
     @PostMapping("/request")
@@ -45,6 +48,7 @@ public class PublicAccountDeletionController {
 
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 900000, initialDelay = 900000)
     void removeOldPublicChallenges() {
+        if (retentionEnabled) return;
         db.update("""
                 DELETE FROM auth_verification_codes WHERE purpose = 'public-delete-account'
                     AND issued_at < now() - interval '1 hour'
